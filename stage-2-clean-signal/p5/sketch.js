@@ -2,10 +2,13 @@
 // Smart Object Foundations — MDes Prototyping, CCA
 //
 // Builds on Stage 1. Adds:
-//   1. Background subtraction — exponential moving average (EMA) removes
-//      slow DC drift so the waveform is centered around zero.
+//   1. Background subtraction — a long moving average over a 5 s buffer of raw
+//      samples estimates the slow DC drift; subtracting it centers the waveform
+//      around zero.
 //   2. Moving-average smoothing — averages the last N DC-free samples to
 //      reduce high-frequency noise.
+//
+// Both steps are low-pass filters implemented as explicit circular buffers.
 //
 // The canvas shows two stacked traces:
 //   Top (blue)   — raw signal as received from the ESP32
@@ -28,10 +31,11 @@ const BUFFER_SIZE    = 500;             // 5 s of history at 100 Hz
 const RAW_COLOR      = [100, 200, 255]; // blue
 const SMOOTHED_COLOR = [255, 180,  50]; // amber
 
-// Background subtraction: EMA time constant ≈ 1 / (BASELINE_ALPHA × sampleRate)
-// At 100 Hz and α = 0.002 → ~5 second time constant
-// Increase α to track faster (but risks removing the heartbeat signal itself).
-const BASELINE_ALPHA = 0.002;
+// Background subtraction: average of the last BASELINE_N raw samples.
+// 500 samples × 10 ms = 5 s window — slow enough to track only DC drift.
+// Increase BASELINE_N to follow slower drift; decrease to follow faster
+// drift (but too small a window risks removing the heartbeat peaks themselves).
+const BASELINE_N = 500;
 
 // Smoothing window: average over this many DC-free samples.
 // 15 samples × 10 ms = 150 ms window.
@@ -43,8 +47,11 @@ let port, reader;
 let rawBuffer      = new Array(BUFFER_SIZE).fill(ADC_MID_SCALE);
 let smoothedBuffer = new Array(BUFFER_SIZE).fill(0);
 
-let baseline     = ADC_MID_SCALE; // adapts to the signal's DC offset
-let smoothWindow = [];            // holds the last SMOOTH_N DC-free samples
+// Baseline buffer: holds the last BASELINE_N raw samples.
+// baselineSum tracks their sum so the mean can be computed without looping.
+let baselineWindow = new Array(BASELINE_N).fill(ADC_MID_SCALE);
+let baselineSum    = BASELINE_N * ADC_MID_SCALE;
+let smoothWindow   = [];            // holds the last SMOOTH_N DC-free samples
 
 // ── WebSerial ─────────────────────────────────────────────────────────────────
 async function connectSerial() {
@@ -81,11 +88,14 @@ function updateBuffer(buf, value) {
   buf.shift();
 }
 
-// Step 1: background subtraction via exponential moving average.
-// Returns the DC-free signal centered near zero.
+// Step 1: background subtraction via long moving average (low-pass filter).
+// The mean of the last BASELINE_N raw samples is the estimated DC baseline.
+// push/shift is O(n) but at 100 Hz with 500 elements this is negligible.
 function removeBackground(raw) {
-  baseline += BASELINE_ALPHA * (raw - baseline);
-  return raw - baseline;
+  baselineSum -= baselineWindow.shift();
+  baselineWindow.push(raw);
+  baselineSum += raw;
+  return raw - baselineSum / BASELINE_N;
 }
 
 // Step 2: moving average — low-pass smoothing (integration).

@@ -179,29 +179,35 @@ This is a complete, standalone sketch — no Stage 1 code needed. Use the same A
 
 A **baseline** is a slowly-updating average of the signal. When you subtract it from each sample, you remove the slow drift and center the waveform around zero. The result is a "DC-free" signal where the interesting heartbeat peaks stand out above a flat baseline.
 
-The EMA formula at the heart of background subtraction:
+The sketch computes the baseline as the **mean of the last 500 raw samples** (5 seconds at 100 Hz):
 
 ```
-baseline = baseline + α (alpha) × (new_sample − baseline)
+baseline = mean of the last BASELINE_N raw samples
+dc_free  = raw − baseline
 ```
 
-The sketch uses `BASELINE_ALPHA = 0.002`, giving a time constant of ~5 seconds at 100 Hz. You can tune this constant in `sketch.js`.
+The sketch uses `BASELINE_N = 500` (a 5 s window). You can tune this constant in `sketch.js` — a larger window tracks drift more slowly; a smaller window is more responsive but risks pulling the baseline toward the heartbeat peaks themselves.
 
 > **📐 Concept Sidebar: Background Subtraction**
 >
 > Every sensor has a **background level** — an offset or drift that has nothing to do with the signal you care about. A photodetector sitting in ambient light, a microphone in a noisy room, a pressure sensor with a static reading — all have backgrounds.
 >
-> **Background subtraction** is the process of estimating that background and removing it. The simplest approach is an exponential moving average (EMA): keep a running estimate that slowly tracks the signal, then subtract it.
+> **Background subtraction** is the process of estimating that background and removing it. The sketch uses a **buffer-based moving average**: keep a rolling buffer of the last N raw samples, compute their mean, and subtract it.
 >
-> `baseline = baseline + α (alpha) × (new_sample - baseline)`
+> ```
+> baseline = mean(last N raw samples)
+> dc_free  = raw − baseline
+> ```
 >
-> The parameter α (alpha) controls how quickly the baseline tracks the signal:
-> - α close to 1 → baseline tracks fast → removes nearly everything, including your signal
-> - α close to 0 → baseline tracks very slowly → only removes slow drift, leaves heartbeat shape intact
+> The parameter N controls how slowly the baseline tracks the signal:
+> - N very large → baseline tracks very slowly → removes only long-term drift, leaves heartbeat shape intact
+> - N very small → baseline tracks quickly → risks pulling toward the heartbeat signal itself
 >
-> For a 100 Hz signal where heartbeats are ~1 Hz, α = 0.002 means the baseline **time constant** (the time for the average to close ~63% of the gap to a new level) is approximately 1/(α × sampleRate) ≈ 5 seconds (this approximation holds for small α). That is slow enough to follow posture changes but fast enough to adapt over time.
+> For a 100 Hz signal where heartbeats are ~1 Hz, N = 500 gives a 5-second window. That is slow enough to follow posture changes but fast enough to adapt over time.
 >
-> **Alternative — buffer-based baseline:** instead of EMA, you can compute the baseline as a long moving average of the raw signal (e.g., the last 500 samples = 5 seconds at 100 Hz) and subtract it. Conceptually it is identical — estimate the slow background, then subtract — but uses an explicit buffer rather than a single accumulating variable. This makes it easier to reason about ("average the last N samples to get the background") at the cost of more memory. Both approaches are **low-pass filters** applied to the raw signal; see the Low-pass and High-pass Filters sidebar below for how they fit into a common framework.
+> This approach is a **low-pass filter**: it keeps only slow (low-frequency) variation in the baseline estimate and throws away the fast heartbeat component. Subtracting it removes the DC component and slow drift, leaving only the heartbeat AC signal.
+>
+> **Alternative — exponential moving average (EMA):** instead of an explicit buffer, you can update a single running variable: `baseline = baseline + α × (raw − baseline)`. This is computationally cheaper and uses no extra memory, but the logic ("all past samples contribute with exponentially decaying weight, controlled by α") is less transparent than "average the last N seconds". For learning, the buffer approach is usually easier to reason about.
 
 ### 2b — Smoothing with a moving average (integration)
 
@@ -237,14 +243,14 @@ The sketch uses `SMOOTH_N = 15` (150 ms at 100 Hz). Try changing this constant i
 >
 > **Low-pass filter (LPF)** — passes slow (low-frequency) changes; blocks fast (high-frequency) changes. Think of it as a smoothing operation.
 >
-> Both signal-cleaning steps in Stage 2 are low-pass filters, implemented in two different ways:
+> Both signal-cleaning steps in Stage 2 are low-pass filters implemented as **buffer-based moving averages** — they differ only in window size:
 >
-> | Implementation | Type | How it works |
+> | Step | Window | Purpose |
 > |---|---|---|
-> | Moving average (Stage 2b) | FIR (finite impulse response) | Averages the last N samples from an explicit buffer. Each output depends only on the N most recent inputs. Simple to understand and inspect. |
-> | Exponential moving average / EMA (Stage 2a) | IIR (infinite impulse response) | Updates a single `baseline` variable: `baseline += α × (input − baseline)`. No explicit buffer — all past samples contribute, with recent ones weighted more heavily. Computationally cheap but less intuitive. |
+> | Stage 2a — baseline (BASELINE_N = 500) | 5 s at 100 Hz | Captures only slow DC drift; subtracting it removes the background |
+> | Stage 2b — smoothing (SMOOTH_N = 15) | 150 ms at 100 Hz | Removes sample-to-sample jitter while preserving heartbeat peaks |
 >
-> Both remove the same kind of content (slow drift / DC offset) when used for background subtraction. The buffer-based moving average makes the "average the last N seconds to find the background" logic explicit; the EMA hides that logic in a single number. For learning, the moving average is often easier to reason about; for production, EMA is lighter on memory.
+> Using an explicit buffer makes the logic transparent: "average the last N samples." An alternative is an **exponential moving average (EMA)** — a single variable updated with `baseline += α × (input − baseline)` — which is more memory-efficient but less intuitive. Both are valid low-pass filters; the buffer approach is used here for clarity.
 >
 > **High-pass filter (HPF)** — passes fast (high-frequency) changes; blocks slow (low-frequency) changes. Think of it as a *change detector* or *edge detector*.
 >
@@ -254,9 +260,9 @@ The sketch uses `SMOOTH_N = 15` (150 ms at 100 Hz). Try changing this constant i
 >
 > ```
 > raw signal
->   → LPF: EMA removes slow DC drift          (background subtraction)
->   → LPF: moving average removes fast noise   (smoothing)
->   → HPF: differentiation finds rising edges  (peak detection)
+>   → LPF: 5 s moving average removes slow DC drift   (background subtraction)
+>   → LPF: 150 ms moving average removes fast noise    (smoothing)
+>   → HPF: differentiation finds rising edges          (peak detection)
 > ```
 >
 > After the two low-pass stages you have a clean, centered signal. The high-pass stage then highlights exactly the rapid transitions that mark heartbeat peaks.

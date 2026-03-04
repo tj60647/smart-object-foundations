@@ -5,6 +5,8 @@
 //   raw → background subtraction → moving average → differentiation
 //       → peak detection → BPM + confidence value
 //
+// Both low-pass filter steps use explicit circular buffers.
+//
 // The canvas shows:
 //   Top trace (blue)     — raw signal from the ESP32
 //   Bottom trace (amber) — smoothed, DC-free signal
@@ -28,8 +30,9 @@ const BUFFER_SIZE    = 500;             // 5 s of history at 100 Hz
 const RAW_COLOR      = [100, 200, 255]; // blue
 const SMOOTHED_COLOR = [255, 180,  50]; // amber
 
-// Background subtraction
-const BASELINE_ALPHA = 0.002; // EMA time constant ≈ 5 s at 100 Hz
+// Background subtraction: average of the last BASELINE_N raw samples.
+// 500 samples × 10 ms = 5 s window — slow enough to track only DC drift.
+const BASELINE_N = 500;
 
 // Smoothing
 const SMOOTH_N = 15; // 150 ms window at 100 Hz
@@ -51,10 +54,11 @@ let port, reader;
 let rawBuffer      = new Array(BUFFER_SIZE).fill(ADC_MID_SCALE);
 let smoothedBuffer = new Array(BUFFER_SIZE).fill(0);
 
-let baseline     = ADC_MID_SCALE;
-let smoothWindow = [];
-let prevSmoothed = 0;
-let prevSlope    = 0;
+let baselineWindow = new Array(BASELINE_N).fill(ADC_MID_SCALE);
+let baselineSum    = BASELINE_N * ADC_MID_SCALE;
+let smoothWindow   = [];
+let prevSmoothed   = 0;
+let prevSlope      = 0;
 
 // sampleCount is a monotonically increasing counter used to position peaks
 // on the canvas without relying on the Arduino's clock.
@@ -96,10 +100,14 @@ function updateBuffer(buf, value) {
   buf.shift();
 }
 
-// Step 1: background subtraction via EMA — removes slow DC drift
+// Step 1: background subtraction via long moving average (low-pass filter).
+// The mean of the last BASELINE_N raw samples is the estimated DC baseline.
+// push/shift is O(n) but at 100 Hz with 500 elements this is negligible.
 function removeBackground(raw) {
-  baseline += BASELINE_ALPHA * (raw - baseline);
-  return raw - baseline;
+  baselineSum -= baselineWindow.shift();
+  baselineWindow.push(raw);
+  baselineSum += raw;
+  return raw - baselineSum / BASELINE_N;
 }
 
 // Step 2: moving average — low-pass smoothing (integration)

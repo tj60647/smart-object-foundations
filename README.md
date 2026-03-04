@@ -1,222 +1,170 @@
-## Introduction
+# Smart Object Foundations
 
-This collection of tutorials and resources is designed to give students hands-on experience building **Smart Objects**—physical devices that connect to software systems (such as p5.js or the web) and appear responsive, intelligent, or knowledgeable. The goal is to guide students through a specific technology stack so they can learn core concepts in sensing, data transmission, and data processing.
+## Welcome
 
-Students will work with an **ESP32 v2** and the **Arduino IDE**, connect the device to a computer using **WebSerial**, and send sensor data to **p5.js/OpenProcessing** for visualization and analysis. The central example will be a **pulse sensor heart-rate monitor**, which students can expand into more expressive or interactive systems.
+In this course you will build **Smart Objects**—physical devices that sense the world and share that information with software running in a browser. By the end you will have a working pulse-sensor heart-rate monitor and the skills to extend it into your own interactive or expressive project.
 
-The tutorials focus on developing practical skills in sensing, sampling, data formatting, serial communication, visualization, and signal processing. 
-
----
-
-# Tutorial and Resource Topics
-
-## 1. Core Project: Pulse Sensor Heartbeat Monitor
-
-The central example project will be a **pulse detection system** using the PulseSensor.
-
-Students will:
-
-* Read analog pulse data from a PulseSensor using an ESP32
-* Transmit data through serial communication
-* Send data to a browser using WebSerial
-* Visualize and analyze the signal in p5.js/OpenProcessing
-* Detect and display heartbeat events
-
-This example forms a base that students can extend into more complex smart objects.
-
-Key concepts:
-
-* Analog sensing
-* Signal sampling
-* Serial communication
-* Real-time visualization
-* Basic signal processing
+**You will work with:**
+- An **ESP32 v2** microcontroller and the **Arduino IDE**
+- **WebSerial** to send data from the device to your laptop
+- **p5.js / OpenProcessing** to visualize and process the data in real time
 
 ---
 
-## 2. Arduino / ESP32 Fundamentals
+## Tutorial Roadmap
 
-Students need a working foundation in the Arduino environment and ESP32 hardware.
+### Stage 1 — Core Project: Pulse Sensor Heartbeat Monitor
 
-Topics:
+Your central project is a **real-time heartbeat detector** using a PulseSensor and an ESP32.
 
-* Arduino IDE workflow
-* Basic Arduino sketch structure
+**What you will do:**
+1. Wire a PulseSensor to an ESP32
+2. Read the analog signal in Arduino and print it over Serial
+3. Connect to your browser using WebSerial
+4. Draw a live waveform in p5.js
+5. Detect heartbeat peaks and display beats-per-minute
 
-  * setup()
-  * loop()
-* Analog input with ESP32
-* Sampling sensors with `analogRead()`
-* Sampling rates and timing considerations
-* Techniques for consistent sampling
-* Formatting serial data output
-* Using the Arduino Serial Plotter for debugging signals
+This project is your launchpad. Everything else builds on it.
 
-Possible tutorial:
-
-* **How to dissect an Arduino sketch**
-
-  * Understanding libraries
-  * Understanding data flow
-  * Understanding timing
+**Key concepts you will practice:**
+- Analog sensing
+- Signal sampling
+- Serial communication
+- Real-time visualization
+- Basic signal processing
 
 ---
 
-## 3. Serial Communication and WebSerial
+### Stage 2 — Arduino / ESP32 Basics
 
-Students will learn how sensor data moves from hardware to the browser.
+Before wiring up the pulse sensor, make sure you are comfortable with the Arduino environment.
 
-Topics:
+**Topics:**
+- Arduino IDE: installing, uploading, using the Serial Monitor
+- Sketch structure: `setup()` and `loop()`
+- Reading analog inputs with `analogRead()`
+- Controlling sample timing so readings are consistent
+- Formatting data as clean Serial output
+- Using the Arduino Serial Plotter to see a live signal
 
-* Serial communication basics
-* Data formatting for reliable transmission
-* Debugging serial output
-* WebSerial in the browser
-* Connecting ESP32 to a computer via WebSerial
-* Parsing serial data in JavaScript
-
-Example demos:
-
-WebSerial Arduino examples
-[https://openprocessing.org/sketch/2576473](https://openprocessing.org/sketch/2576473)
-[https://openprocessing.org/sketch/2583498](https://openprocessing.org/sketch/2583498)
-[https://openprocessing.org/sketch/2584328](https://openprocessing.org/sketch/2584328)
-
-Learning goals:
-
-* Understand the data pipeline from microcontroller → browser
-* Build simple serial protocols
-* Parse incoming data streams
+**Skill check:** Can you read a sensor value and print it at a steady rate?
 
 ---
 
-## 4. Data Visualization in p5.js / OpenProcessing
+### Stage 3 — Serial Communication and WebSerial
 
-Once data reaches the browser, students will visualize it in real time.
+Learn how data travels from the ESP32 into the browser.
 
-Topics:
+**Topics:**
+- What serial communication is and why formatting matters
+- Sending data from Arduino in a format JavaScript can parse
+- Using the WebSerial API to connect a browser to a serial device
+- Parsing the incoming data stream in p5.js
 
-* Receiving WebSerial data in p5.js
-* Buffering and storing incoming samples
-* Drawing time-series graphs
-* Creating responsive visualizations
-* Designing readable sensor displays
+**Live demo sketches:**
+- [WebSerial example 1](https://openprocessing.org/sketch/2576473)
+- [WebSerial example 2](https://openprocessing.org/sketch/2583498)
+- [WebSerial example 3](https://openprocessing.org/sketch/2584328)
 
-Core example:
-
-* Real-time pulse waveform display
-* Heartbeat indicator visualization
-
----
-
-## 5. Data Processing and Signal Analysis
-
-Students will perform basic signal processing to extract meaningful information from sensor data.
-
-Topics:
-
-* Moving averages (integration / smoothing)
-* Rate of change (differential)
-* Standard deviation
-* Peak detection
-* Extracting heartbeats from pulse data
-* Noise reduction
-
-Outcome:
-
-* Turning raw analog data into meaningful events (heartbeat detection)
+**Goal:** Data flows continuously from your microcontroller into your p5.js sketch.
 
 ---
 
-## 6. Expressive Outputs: Light and Sound
+### Stage 4 — Data Visualization in p5.js / OpenProcessing
 
-Students can extend sensor data into expressive systems.
+Now that data is arriving in the browser, make it visible.
 
-Examples:
+**Topics:**
+- Storing incoming samples in an array
+- Drawing a scrolling time-series graph
+- Adding labels, scales, and visual polish
+- Designing a readable sensor display
 
-* Light responses to pulse data
-* Sound responses to heartbeat patterns
-* "Colloquy of mobiles" style interactive objects
-
-Focus:
-
-* Mapping sensor data to media outputs
-* Creating responsive physical systems
+**Deliverable:** A live waveform that scrolls as your pulse sensor data arrives.
 
 ---
 
-## 7. Networking and Alternative Architectures
+### Stage 5 — Signal Processing
 
-Possible extension topics.
+Raw sensor values are noisy. Learn to clean them up and extract meaning.
 
-MQTT example:
+**Topics:**
+- Moving average (smoothing)
+- Rate of change (detecting rises and falls)
+- Standard deviation (measuring variation)
+- Peak detection
+- Noise reduction techniques
 
-[https://openprocessing.org/sketch/2203435](https://openprocessing.org/sketch/2203435)
-
-Discussion points:
-
-* MQTT messaging systems
-* Cloud-connected devices
-* Web-based device communication
-
-Open question:
-
-* Whether introducing WiFi networking on ESP32 is worth the complexity in the course environment (CCA network, configuration overhead, reliability).
-
-Possible decision:
-
-* WebSerial + p5.js may be sufficient for most instructional goals.
+**Outcome:** Your sketch detects individual heartbeat peaks and calculates BPM.
 
 ---
 
-## 8. Smart Object Design
+### Stage 6 — Expressive Outputs
 
-Students will ultimately build a **Smart Object**.
+Extend your smart object beyond a screen display.
 
-Definition:
+**Ideas:**
+- LED patterns that respond to your heartbeat
+- Sound that pulses in time with your heart rate
+- Combining multiple sensors for richer data
 
-A physical device that uses sensors, computation, and web connectivity to appear intelligent, reactive, or knowledgeable.
-
-Examples for inspiration:
-
-[https://enchantedobjects.com/](https://enchantedobjects.com/)
-
-Possible project directions:
-
-* Health or biofeedback devices
-* Responsive environments
-* Expressive data objects
-* Interactive storytelling devices
+**Inspiration:** [Enchanted Objects](https://enchantedobjects.com/)
 
 ---
 
-## 9. AI and Inquiry Tools
+### Stage 7 — Networking (Extension)
 
-Potential additions to the course workflow.
+If you want to go further, explore sending data over Wi-Fi.
 
-Ideas:
+**Concepts:**
+- MQTT messaging
+- Cloud-connected devices
+- Web-based device communication
 
-* NotebookLM or similar tools for research
-* Agents for helping interpret sensor data
-* "Questions to ask" frameworks for debugging and exploration
+**Example:** [MQTT in OpenProcessing](https://openprocessing.org/sketch/2203435)
+
+> **Note:** Wi-Fi on the ESP32 adds configuration complexity. WebSerial + p5.js is usually enough for class projects.
 
 ---
 
-## 10. Pedagogical Questions
+## Getting Started Checklist
 
-Open questions for instructors:
+- [ ] Install the Arduino IDE
+- [ ] Add ESP32 board support to the Arduino IDE
+- [ ] Install the PulseSensor Playground library
+- [ ] Wire up a PulseSensor to your ESP32 (analog pin)
+- [ ] Upload the starter sketch and verify Serial output
+- [ ] Open the WebSerial demo sketch in OpenProcessing
+- [ ] Connect your ESP32 and see the waveform appear
 
-* How much emphasis should be placed on **physical prototyping** versus software systems built around hardware?
-* Are students learning the intended skills when they rely heavily on **AI or “vibe coding”** tools?
-* Should the curriculum prioritize:
+---
 
-  * technical understanding
-  * creative momentum
-  * rapid experimentation?
+---
 
-Related challenge:
+# Faculty Notes
 
-Keeping course material, exercises, and evaluation methods aligned with rapidly evolving tools students are using.
+> This section is for **instructors and course designers**. It covers open questions, pedagogical decisions, and ideas that are still being worked out.
 
-* a **student-facing tutorial roadmap**
-* a **step-by-step pulse sensor lab sequence** (which would probably make the strongest core unit).
+## Curriculum Design Questions
+
+- How much weight should go to **physical prototyping** versus the software systems built around hardware?
+- Are students actually learning the target skills when they rely heavily on AI or "vibe coding" tools? How do we assess that?
+- Which should the curriculum optimize for?
+  - Technical understanding
+  - Creative momentum
+  - Rapid experimentation
+
+## Technology Decisions
+
+- **WebSerial vs. Wi-Fi/MQTT:** WebSerial is simpler to set up and avoids CCA network configuration issues. For most instructional goals it is sufficient. Introducing Wi-Fi networking on the ESP32 may not be worth the added complexity.
+- The pulse sensor project is intentionally chosen because it produces a visible, rhythmic signal that is easy to debug and satisfying to get working.
+
+## Possible Additional Materials
+
+- A **step-by-step pulse sensor lab sequence** with checkpoints (recommended as the core unit)
+- AI / inquiry tool integration: NotebookLM for research, LLM-based debugging prompts, "questions to ask" frameworks
+- Expanded assessment rubrics aligned to rapidly evolving student tool use
+
+## Keeping Material Current
+
+Student tools (especially AI coding assistants) evolve quickly. Course materials, exercises, and evaluation methods should be revisited each term to stay aligned with how students actually work.

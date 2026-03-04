@@ -60,6 +60,35 @@ The work is divided into four stages. Each stage produces something you can see 
 
 ---
 
+## Folder Structure
+
+Each stage has a self-contained folder. Open Arduino sketches in the Arduino IDE; open p5 sketches in OpenProcessing or locally via `index.html` in Chrome / Edge.
+
+```
+stage-0-wire-and-verify/
+└── stage_0_wire_and_verify/
+    └── stage_0_wire_and_verify.ino   ← open in Arduino IDE
+
+stage-1-raw-waveform/
+├── stage_1_send_data/
+│   └── stage_1_send_data.ino         ← open in Arduino IDE (also used for Stages 2 & 3)
+└── p5/
+    ├── index.html                    ← open locally in Chrome / Edge
+    └── sketch.js                     ← paste into OpenProcessing
+
+stage-2-clean-signal/
+└── p5/
+    ├── index.html
+    └── sketch.js
+
+stage-3-heartbeat-detection/
+└── p5/
+    ├── index.html
+    └── sketch.js
+```
+
+---
+
 ## Stage 0 — Wire Up and Verify
 
 Connect the PulseSensor to your ESP32 and confirm the analog signal exists before writing any processing code.
@@ -72,31 +101,9 @@ Connect the PulseSensor to your ESP32 and confirm the analog signal exists befor
 | Black (ground) | GND |
 | Purple (signal) | A0 (or any analog-capable pin) |
 
-**Arduino sketch — minimum viable sampler:**
+📂 **Arduino sketch:** [`stage-0-wire-and-verify/stage_0_wire_and_verify/stage_0_wire_and_verify.ino`](stage-0-wire-and-verify/stage_0_wire_and_verify/stage_0_wire_and_verify.ino)
 
-```cpp
-// Stage 0: read raw sensor, print at steady rate
-// No libraries needed.
-
-const int SENSOR_PIN = A0;
-const unsigned long SAMPLE_INTERVAL_MS = 10; // 100 samples/sec
-unsigned long lastSampleTime = 0;
-
-void setup() {
-  Serial.begin(115200);
-}
-
-void loop() {
-  unsigned long now = millis();
-  if (now - lastSampleTime >= SAMPLE_INTERVAL_MS) {
-    lastSampleTime = now;
-    int rawValue = analogRead(SENSOR_PIN); // 0–4095 on ESP32 (12-bit ADC)
-    Serial.println(rawValue);
-  }
-}
-```
-
-Open the **Arduino Serial Plotter** (`Tools → Serial Plotter`, baud rate 115200). Place your fingertip on the sensor. You should see a rhythmic wave that rises and falls with each heartbeat.
+Open this in the Arduino IDE and upload it to your ESP32. Open `Tools → Serial Plotter` at 115200 baud. Place your fingertip on the sensor — you should see a rhythmic wave that rises and falls with each heartbeat.
 
 > **📐 Concept Sidebar: Nyquist Theorem and Sampling Rate**
 >
@@ -129,103 +136,18 @@ Get the raw numbers from your ESP32 into a p5.js sketch and draw them as a scrol
 
 ### 1a — Send timestamped data from the ESP32
 
-Update your Arduino sketch to send both a timestamp and the sensor value on each line:
+📂 **Arduino sketch:** [`stage-1-raw-waveform/stage_1_send_data/stage_1_send_data.ino`](stage-1-raw-waveform/stage_1_send_data/stage_1_send_data.ino)
 
-```cpp
-// Stage 1: send timestamp,value pairs
-const int SENSOR_PIN = A0;
-const unsigned long SAMPLE_INTERVAL_MS = 10;
-unsigned long lastSampleTime = 0;
-
-void setup() {
-  Serial.begin(115200);
-}
-
-void loop() {
-  unsigned long now = millis();
-  if (now - lastSampleTime >= SAMPLE_INTERVAL_MS) {
-    lastSampleTime = now;
-    int rawValue = analogRead(SENSOR_PIN);
-    Serial.print(now);
-    Serial.print(",");
-    Serial.println(rawValue);
-  }
-}
-```
-
-Each line looks like: `1234,2048`
+This sketch sends lines like `1234,2048` — Arduino milliseconds and raw ADC value — over Serial at 100 Hz. **This same Arduino sketch is used for Stages 2 and 3.** No further changes to the hardware side are needed after this point.
 
 ### 1b — Receive and display in p5.js
 
-```javascript
-// Stage 1 p5.js sketch — raw waveform display
-// Paste into OpenProcessing. Requires Chrome or Edge for WebSerial.
+📂 **p5.js sketch:** [`stage-1-raw-waveform/p5/sketch.js`](stage-1-raw-waveform/p5/sketch.js)
 
-const SAMPLE_INTERVAL_MS = 10; // must match Arduino sketch (100 Hz)
-const YMIN = 0, YMAX = 4095;   // ESP32 12-bit ADC range
-const ADC_MID_SCALE = (YMIN + YMAX) / 2; // 2047.5 — nominal midpoint
+- **OpenProcessing:** paste the contents of `sketch.js` into a new sketch.
+- **Locally:** open `stage-1-raw-waveform/p5/index.html` in Chrome or Edge.
 
-let port, reader;
-let rawBuffer = new Array(500).fill(ADC_MID_SCALE); // pre-fill with mid-scale value
-
-async function connectSerial() {
-  port = await navigator.serial.requestPort();
-  await port.open({ baudRate: 115200 });
-  const decoder = new TextDecoderStream();
-  port.readable.pipeTo(decoder.writable);
-  reader = decoder.readable.getReader();
-  readLoop();
-}
-
-async function readLoop() {
-  let partial = "";
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    partial += value;
-    const lines = partial.split("\n");
-    partial = lines.pop();          // keep any incomplete line
-    for (const line of lines) {
-      const parts = line.trim().split(",");
-      if (parts.length === 2) {
-        const ts  = parseInt(parts[0]);
-        const val = parseInt(parts[1]);
-        if (!isNaN(val)) onNewSample(ts, val);
-      }
-    }
-  }
-}
-
-function onNewSample(timestamp, raw) {
-  rawBuffer.push(raw);
-  rawBuffer.shift();        // keep fixed length — this is a circular/rolling buffer
-}
-
-function setup() {
-  createCanvas(800, 400);
-  let btn = createButton("Connect ESP32");
-  btn.mousePressed(connectSerial);
-}
-
-function draw() {
-  background(20);
-
-  // Draw raw waveform
-  stroke(100, 200, 255);
-  noFill();
-  beginShape();
-  for (let i = 0; i < rawBuffer.length; i++) {
-    let x = map(i, 0, rawBuffer.length - 1, 0, width);
-    let y = map(rawBuffer[i], YMIN, YMAX, height - 20, 20);
-    vertex(x, y);
-  }
-  endShape();
-
-  fill(255);
-  noStroke();
-  text("RAW", 10, 20);
-}
-```
+The sketch maintains a 500-sample circular buffer (`rawBuffer`) of the most recent readings and draws it as a scrolling waveform.
 
 > **📐 Concept Sidebar: Data Buffers and Rolling Windows**
 >
@@ -246,33 +168,24 @@ Raw sensor data contains two kinds of "noise" you need to remove before you can 
 1. **Slow drift / DC offset** — the baseline level of the signal shifts slowly as the sensor moves on your finger. This is low-frequency variation.
 2. **High-frequency noise** — small sample-to-sample jitter from electrical interference and ADC quantization.
 
-You will remove both in the browser.
+📂 **p5.js sketch:** [`stage-2-clean-signal/p5/sketch.js`](stage-2-clean-signal/p5/sketch.js)
+
+- **OpenProcessing:** paste the contents of `sketch.js` into a new sketch.
+- **Locally:** open `stage-2-clean-signal/p5/index.html` in Chrome or Edge.
+
+This is a complete, standalone sketch — no Stage 1 code needed. Use the same Arduino sketch from Stage 1.
 
 ### 2a — Background subtraction
 
 A **baseline** is a slowly-updating average of the signal. When you subtract it from each sample, you remove the slow drift and center the waveform around zero. The result is a "DC-free" signal where the interesting heartbeat peaks stand out above a flat baseline.
 
-```javascript
-// Add to your p5.js sketch (Stage 2a)
+The EMA formula at the heart of background subtraction:
 
-let baseline = ADC_MID_SCALE;     // start at mid-scale; will adapt quickly
-const BASELINE_ALPHA = 0.002;     // how fast the baseline tracks the signal
-                                  // smaller = slower = removes lower frequencies
-
-let dcFreeBuffer = new Array(500).fill(0);
-
-// Helper: push a value into a fixed-length rolling buffer
-function updateBuffer(buf, value) {
-  buf.push(value);
-  buf.shift();
-}
-
-function removeBackground(raw) {
-  // Exponential moving average — a simple IIR low-pass filter
-  baseline += BASELINE_ALPHA * (raw - baseline);
-  return raw - baseline;         // center around zero
-}
 ```
+baseline = baseline + α (alpha) × (new_sample − baseline)
+```
+
+The sketch uses `BASELINE_ALPHA = 0.002`, giving a time constant of ~5 seconds at 100 Hz. You can tune this constant in `sketch.js`.
 
 > **📐 Concept Sidebar: Background Subtraction**
 >
@@ -292,22 +205,7 @@ function removeBackground(raw) {
 
 After background subtraction, the signal still has sample-to-sample jitter. A **moving average** averages the last N samples together, which blurs out fast noise while preserving slower, larger features like heartbeat peaks.
 
-```javascript
-// Add to your p5.js sketch (Stage 2b)
-
-let smoothWindow = [];
-const SMOOTH_N = 15;              // average over 15 samples = 150 ms at 100 Hz
-
-let smoothedBuffer = new Array(500).fill(0);
-
-function movingAverage(value) {
-  smoothWindow.push(value);
-  if (smoothWindow.length > SMOOTH_N) smoothWindow.shift();
-  let sum = 0;
-  for (let v of smoothWindow) sum += v;
-  return sum / smoothWindow.length;
-}
-```
+The sketch uses `SMOOTH_N = 15` (150 ms at 100 Hz). Try changing this constant in `sketch.js` to see the effect — smaller values are noisier, larger values are smoother but slightly delay peaks.
 
 > **📐 Concept Sidebar: Integration and Moving Average**
 >
@@ -331,62 +229,7 @@ function movingAverage(value) {
 >
 > The "right" window size depends on the timescale of the features you want to preserve vs. the timescales of the noise you want to remove. For heartbeat detection at 100 Hz, 10–20 samples (100–200 ms) is a reasonable starting range.
 
-### 2c — Draw both signals
-
-Add a second trace to your p5.js sketch showing the cleaned signal below (or alongside) the raw signal:
-
-```javascript
-// Updated draw() for Stage 2
-// Define color constants at the top of your sketch (add these near your other constants):
-//   const RAW_COLOR      = [100, 200, 255];
-//   const SMOOTHED_COLOR = [255, 180,  50];
-
-function draw() {
-  background(20);
-
-  let halfH = height / 2;
-
-  // Top half: raw signal
-  stroke(...RAW_COLOR);
-  noFill();
-  beginShape();
-  for (let i = 0; i < rawBuffer.length; i++) {
-    let x = map(i, 0, rawBuffer.length - 1, 0, width);
-    let y = map(rawBuffer[i], YMIN, YMAX, halfH - 10, 10);
-    vertex(x, y);
-  }
-  endShape();
-
-  // Bottom half: smoothed DC-free signal (centered around halfH)
-  stroke(...SMOOTHED_COLOR);
-  noFill();
-  beginShape();
-  for (let i = 0; i < smoothedBuffer.length; i++) {
-    let x = map(i, 0, smoothedBuffer.length - 1, 0, width);
-    let y = map(smoothedBuffer[i], -500, 500, height - 10, halfH + 10);
-    vertex(x, y);
-  }
-  endShape();
-
-  fill(...RAW_COLOR);      noStroke(); text("RAW",      10, 15);
-  fill(...SMOOTHED_COLOR);            text("SMOOTHED", 10, halfH + 15);
-}
-```
-
-Update `onNewSample` to run the processing pipeline using the `updateBuffer` helper:
-
-```javascript
-function onNewSample(timestamp, raw) {
-  updateBuffer(rawBuffer, raw);
-
-  let dc   = removeBackground(raw);
-  let sm   = movingAverage(dc);
-
-  updateBuffer(smoothedBuffer, sm);
-}
-```
-
-**Deliverable:** Two waveforms side-by-side. The bottom one should be centered on zero, smoother, and free of slow drift.
+**Deliverable:** Open the Stage 2 sketch to see the raw signal (blue, top half) and the smoothed DC-free signal (amber, bottom half) displayed together in real time. The bottom trace should be centered on zero, smoother, and free of slow drift.
 
 ---
 
@@ -394,20 +237,21 @@ function onNewSample(timestamp, raw) {
 
 With a clean signal in hand, you can now detect peaks. Each peak corresponds to one heartbeat.
 
+📂 **p5.js sketch:** [`stage-3-heartbeat-detection/p5/sketch.js`](stage-3-heartbeat-detection/p5/sketch.js)
+
+- **OpenProcessing:** paste the contents of `sketch.js` into a new sketch.
+- **Locally:** open `stage-3-heartbeat-detection/p5/index.html` in Chrome or Edge.
+
+This is a complete, standalone sketch. Use the same Arduino sketch from Stage 1.
+
 ### 3a — Differentiation: finding rises and falls
 
 The **derivative** (rate of change) of a signal tells you whether it is going up or down at each moment. A heartbeat peak is where the signal transitions from rising to falling — i.e., where the derivative crosses zero from positive to negative.
 
-```javascript
-// Add to your p5.js sketch (Stage 3a)
+The discrete derivative (first difference):
 
-let prevSmoothed = 0;
-
-function differentiate(smoothed) {
-  let slope = smoothed - prevSmoothed;   // first difference = discrete derivative
-  prevSmoothed = smoothed;
-  return slope;
-}
+```
+slope[n] = signal[n] − signal[n−1]
 ```
 
 > **📐 Concept Sidebar: Differentiation**
@@ -420,37 +264,9 @@ function differentiate(smoothed) {
 
 ### 3b — Peak detection with a threshold
 
-A zero crossing alone is not enough — noise creates many small zero crossings. Add an **amplitude threshold**: only declare a peak if the smoothed signal is above a minimum height.
+A zero crossing alone is not enough — noise creates many small zero crossings. The sketch adds an **amplitude threshold**: a peak is only declared if the smoothed signal is above `AMPLITUDE_THRESHOLD` at the moment of the zero crossing.
 
-```javascript
-// Add to your p5.js sketch (Stage 3b)
-
-let prevSlope = 0;
-let peakSampleCounts = []; // sample-count index when each peak was detected
-const MAX_PEAKS_STORED = 12;
-const AMPLITUDE_THRESHOLD = 80; // applies to the DC-free smoothed signal (not raw ADC values)
-                                 // after background subtraction the signal is centered near 0;
-                                 // heartbeat peaks typically rise 50–300 units above that center
-                                 // start at 80 and adjust: lower if beats are missed, higher if noise triggers false peaks
-
-// sampleCount increments by 1 for every call to onNewSample
-// (declare this near your other global variables)
-let sampleCount = 0;
-
-function detectPeak(smoothedValue, slope) {
-  // Zero crossing: slope just went from positive to negative (or zero)
-  let isPeakZeroCrossing = (prevSlope > 0 && slope <= 0);
-  // Amplitude gate: signal must be above baseline noise
-  let isAboveThreshold = (smoothedValue > AMPLITUDE_THRESHOLD);
-
-  if (isPeakZeroCrossing && isAboveThreshold) {
-    peakSampleCounts.push(sampleCount); // record which sample this peak belongs to
-    if (peakSampleCounts.length > MAX_PEAKS_STORED) peakSampleCounts.shift();
-  }
-
-  prevSlope = slope;
-}
-```
+The default is `AMPLITUDE_THRESHOLD = 80`. This applies to the DC-free smoothed signal (not the raw 0–4095 ADC range) — heartbeat peaks typically rise 50–300 units above the baseline. Tune this constant in `sketch.js`: lower if beats are missed, higher if noise triggers false peaks.
 
 > **📐 Concept Sidebar: Pattern Matching**
 >
@@ -462,126 +278,34 @@ function detectPeak(smoothedValue, slope) {
 
 ### 3c — BPM and confidence value
 
-Once you have a list of peak sample counts, calculate the **inter-beat interval (IBI)** — the number of samples between consecutive peaks multiplied by the sample interval gives the time in ms. BPM is 60,000 ms divided by the average IBI.
+Once peaks are detected, the sketch calculates the **inter-beat interval (IBI)** from the number of samples between consecutive peaks:
+
+```
+IBI (ms) = samples_between_peaks × SAMPLE_INTERVAL_MS
+BPM      = 60000 / mean(IBI)
+```
 
 Using sample counts instead of wall-clock timestamps avoids a subtle bug: the browser's `millis()` and the Arduino's `millis()` are two unrelated clocks that start at different times. Tracking which sample index each peak belongs to keeps everything in the same coordinate system.
 
-**Confidence** measures how consistent the intervals are. If every beat is the same distance apart, confidence is high. If the intervals are wildly variable (motion artifact, finger movement), confidence is low.
+**Confidence** uses the coefficient of variation (CV) of the IBI series:
 
-```javascript
-// Add to your p5.js sketch (Stage 3c)
-
-function calculateBPMandConfidence() {
-  if (peakSampleCounts.length < 3) {
-    return { bpm: 0, confidence: 0 };
-  }
-
-  // Compute inter-beat intervals (IBI) in milliseconds, using sample counts
-  let intervals = [];
-  for (let i = 1; i < peakSampleCounts.length; i++) {
-    let samplesBetween = peakSampleCounts[i] - peakSampleCounts[i - 1];
-    intervals.push(samplesBetween * SAMPLE_INTERVAL_MS);
-  }
-
-  let n = intervals.length;
-  let mean = intervals.reduce((a, b) => a + b, 0) / n;
-  let bpm  = 60000 / mean;
-
-  // Standard deviation of intervals
-  let variance = intervals.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / n;
-  let stdDev   = Math.sqrt(variance);
-
-  // Coefficient of variation (CV): stdDev / mean, expressed 0–1
-  // CV = 0 → perfectly regular; CV = 1 → completely random
-  let cv = stdDev / mean;
-
-  // Map CV to a 0–1 confidence score (lower CV = higher confidence)
-  // Clamp to reasonable range: CV above 0.3 is unreliable for heart rate
-  let confidence = Math.max(0, 1 - cv / 0.3);
-
-  return { bpm, confidence };
-}
+```
+CV         = stdDev(IBI) / mean(IBI)
+confidence = max(0, 1 − CV / 0.3)
 ```
 
-### 3d — Display everything
+CV = 0 means perfectly regular beats; CV above 0.3 is considered unreliable. The sketch maps this to a 0–1 confidence score displayed in green (≥ 0.7), yellow (≥ 0.4), or red (< 0.4).
 
-Update `onNewSample` and `draw()` to run the full pipeline and show the result:
+### 3d — What you will see
 
-```javascript
-// Full onNewSample pipeline
-function onNewSample(timestamp, raw) {
-  sampleCount++;                  // increment before processing so peaks get the right index
-  updateBuffer(rawBuffer, raw);
+Open the Stage 3 sketch. You will see:
 
-  let dc     = removeBackground(raw);
-  let sm     = movingAverage(dc);
-  updateBuffer(smoothedBuffer, sm);
+- **Blue trace (top)** — raw signal from the ESP32
+- **Amber trace (bottom)** — smoothed, DC-free signal
+- **Red tick marks** — detected heartbeat peaks on the smoothed trace
+- **Top-right readout** — BPM (large) and confidence % (color-coded)
 
-  let slope  = differentiate(sm);
-  detectPeak(sm, slope);          // detectPeak uses sampleCount, not the Arduino timestamp
-}
-
-// Confidence display thresholds (0–1 scale)
-const CONFIDENCE_HIGH = 0.7;
-const CONFIDENCE_MED  = 0.4;
-
-// Full draw()
-// (Assumes RAW_COLOR, SMOOTHED_COLOR constants are defined at sketch top)
-function draw() {
-  background(20);
-  let halfH = height / 2;
-
-  // Top: raw
-  stroke(...RAW_COLOR); noFill();
-  beginShape();
-  for (let i = 0; i < rawBuffer.length; i++) {
-    let x = map(i, 0, rawBuffer.length - 1, 0, width);
-    let y = map(rawBuffer[i], YMIN, YMAX, halfH - 10, 10);
-    vertex(x, y);
-  }
-  endShape();
-
-  // Bottom: smoothed
-  stroke(...SMOOTHED_COLOR); noFill();
-  beginShape();
-  for (let i = 0; i < smoothedBuffer.length; i++) {
-    let x = map(i, 0, smoothedBuffer.length - 1, 0, width);
-    let y = map(smoothedBuffer[i], -500, 500, height - 10, halfH + 10);
-    vertex(x, y);
-  }
-  endShape();
-
-  // Mark detected peaks on the smoothed trace.
-  // Each peak's x position = how many samples ago it was, mapped to canvas width.
-  // Using sample counts keeps everything in the same coordinate system as the buffers.
-  stroke(255, 80, 80);
-  for (let ps of peakSampleCounts) {
-    let samplesAgo = sampleCount - ps;
-    if (samplesAgo >= 0 && samplesAgo < rawBuffer.length) {
-      let x = map(rawBuffer.length - samplesAgo, 0, rawBuffer.length - 1, 0, width);
-      line(x, halfH + 10, x, height - 10);
-    }
-  }
-
-  // BPM and confidence readout
-  let { bpm, confidence } = calculateBPMandConfidence();
-  noStroke();
-  textSize(14);
-  fill(...RAW_COLOR);      text("RAW",      10, 15);
-  fill(...SMOOTHED_COLOR); text("SMOOTHED", 10, halfH + 15);
-  fill(255);
-  textSize(28);
-  text(bpm > 0 ? `${bpm.toFixed(0)} BPM` : "-- BPM", width - 200, 40);
-  textSize(14);
-  let confPct = (confidence * 100).toFixed(0);
-  if      (confidence >= CONFIDENCE_HIGH) fill(80,  255, 80);
-  else if (confidence >= CONFIDENCE_MED)  fill(255, 200, 0);
-  else                                    fill(255, 80,  80);
-  text(`Confidence: ${confPct}%`, width - 200, 60);
-}
-```
-
-**Deliverable:** Two stacked waveforms. Red vertical tick marks appear on the smoothed trace at each detected peak. The top-right corner shows BPM and a green/yellow/red confidence readout.
+**Deliverable:** Reliable peak detection with a BPM reading that stabilises within a few seconds of placing your finger on the sensor. Move your finger or pick it up — watch the confidence value drop and the tick marks become erratic.
 
 ---
 
@@ -590,12 +314,12 @@ function draw() {
 *(You already have the Arduino IDE and ESP32 board support installed from Project 1.)*
 
 - [ ] Wire up the PulseSensor (signal → A0, power → 3.3V, GND → GND)
-- [ ] Upload the Stage 0 sketch — confirm the waveform in the Arduino Serial Plotter
-- [ ] Update to the Stage 1 sketch (add timestamp) — confirm `ts,value` lines in Serial Monitor
+- [ ] Upload `stage-0-wire-and-verify` — confirm the waveform in the Arduino Serial Plotter
+- [ ] Upload `stage-1-raw-waveform` Arduino sketch — confirm `ts,value` lines in Serial Monitor
 - [ ] Open a WebSerial demo sketch in OpenProcessing (Chrome or Edge), connect your ESP32
-- [ ] Build the Stage 1 p5.js sketch — confirm scrolling raw waveform
-- [ ] Add Stage 2 processing — confirm the smoothed, DC-free waveform appears below
-- [ ] Add Stage 3 detection — tune `AMPLITUDE_THRESHOLD` until peaks are detected reliably
+- [ ] Open the Stage 1 p5 sketch — confirm the scrolling raw waveform
+- [ ] Open the Stage 2 p5 sketch — confirm the smoothed, DC-free waveform appears below
+- [ ] Open the Stage 3 p5 sketch — tune `AMPLITUDE_THRESHOLD` until peaks are detected reliably
 - [ ] Observe the confidence value — try moving your finger and watch it drop
 
 ---
@@ -708,6 +432,9 @@ Running signal processing in p5.js rather than on the microcontroller has two be
 
 **ESP32 12-bit ADC.**
 The ESP32's ADC produces values from 0 to 4095. The code examples use these native values. Students should be aware that the ESP32 ADC has known nonlinearity near the supply rails; keeping the sensor signal in the middle of the range (512–3500) produces more accurate readings.
+
+**Standalone stage folders.**
+Each stage's Arduino sketch and p5 sketch live in their own folder so they can be shared, downloaded, or opened directly without copying code from the README. The Stage 1 Arduino sketch (`stage_1_send_data.ino`) is the only sketch needed for Stages 1, 2, and 3 — the p5 sketches for those stages are each fully self-contained.
 
 ## Curriculum Design Questions
 

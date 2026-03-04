@@ -1,0 +1,42 @@
+<!--
+  ============================================================================
+  File:    index.html
+  Project: Smart Object Foundations — MDes Prototyping, CCA
+  Stage:   2 — Clean Signal
+
+  Authors: Copilot
+           Thomas J McLeish
+  License: MIT — see LICENSE in the root of this repository
+  ============================================================================
+
+  PURPOSE
+  This is the local HTML wrapper for the Stage 2 p5.js sketch. It loads
+  the p5.js library from a CDN (a server on the internet) and then loads
+  sketch.js, which contains all of the code for this stage.
+
+  HOW TO USE
+  Open this file in Google Chrome or Microsoft Edge — both support the
+  WebSerial API that the sketch uses to talk to the ESP32. Other browsers
+  (Firefox, Safari) do not yet support WebSerial and will not work.
+
+  If you are using OpenProcessing instead, paste the contents of sketch.js
+  directly into a new sketch there — you do not need this HTML file.
+  ============================================================================
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Stage 2 — Clean Signal | Smart Object Foundations</title>
+  <script src="https://cdn.jsdelivr.net/npm/p5@1.9.4/lib/p5.min.js"></script>
+  <style>
+    body   { margin: 0; background: #111; }
+    canvas { display: block; }
+    button { margin: 8px; font-size: 16px; padding: 6px 14px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <script src="sketch.js"></script>
+</body>
+</html>
+

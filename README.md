@@ -200,6 +200,8 @@ The sketch uses `BASELINE_ALPHA = 0.002`, giving a time constant of ~5 seconds a
 > - α close to 0 → baseline tracks very slowly → only removes slow drift, leaves heartbeat shape intact
 >
 > For a 100 Hz signal where heartbeats are ~1 Hz, α = 0.002 means the baseline **time constant** (the time for the average to close ~63% of the gap to a new level) is approximately 1/(α × sampleRate) ≈ 5 seconds (this approximation holds for small α). That is slow enough to follow posture changes but fast enough to adapt over time.
+>
+> **Alternative — buffer-based baseline:** instead of EMA, you can compute the baseline as a long moving average of the raw signal (e.g., the last 500 samples = 5 seconds at 100 Hz) and subtract it. Conceptually it is identical — estimate the slow background, then subtract — but uses an explicit buffer rather than a single accumulating variable. This makes it easier to reason about ("average the last N samples to get the background") at the cost of more memory. Both approaches are **low-pass filters** applied to the raw signal; see the Low-pass and High-pass Filters sidebar below for how they fit into a common framework.
 
 ### 2b — Smoothing with a moving average (integration)
 
@@ -228,6 +230,36 @@ The sketch uses `SMOOTH_N = 15` (150 ms at 100 Hz). Try changing this constant i
 > - **Long window** → very smooth, lags behind changes
 >
 > The "right" window size depends on the timescale of the features you want to preserve vs. the timescales of the noise you want to remove. For heartbeat detection at 100 Hz, 10–20 samples (100–200 ms) is a reasonable starting range.
+
+> **📐 Concept Sidebar: Low-pass and High-pass Filters**
+>
+> Every processing step in this project is a **filter**. Understanding them as filters gives you a vocabulary that applies to audio, images, sensor signals, and almost any data you will encounter.
+>
+> **Low-pass filter (LPF)** — passes slow (low-frequency) changes; blocks fast (high-frequency) changes. Think of it as a smoothing operation.
+>
+> Both signal-cleaning steps in Stage 2 are low-pass filters, implemented in two different ways:
+>
+> | Implementation | Type | How it works |
+> |---|---|---|
+> | Moving average (Stage 2b) | FIR (finite impulse response) | Averages the last N samples from an explicit buffer. Each output depends only on the N most recent inputs. Simple to understand and inspect. |
+> | Exponential moving average / EMA (Stage 2a) | IIR (infinite impulse response) | Updates a single `baseline` variable: `baseline += α × (input − baseline)`. No explicit buffer — all past samples contribute, with recent ones weighted more heavily. Computationally cheap but less intuitive. |
+>
+> Both remove the same kind of content (slow drift / DC offset) when used for background subtraction. The buffer-based moving average makes the "average the last N seconds to find the background" logic explicit; the EMA hides that logic in a single number. For learning, the moving average is often easier to reason about; for production, EMA is lighter on memory.
+>
+> **High-pass filter (HPF)** — passes fast (high-frequency) changes; blocks slow (low-frequency) changes. Think of it as a *change detector* or *edge detector*.
+>
+> - **Differentiation (Stage 3a)** — `slope[n] = signal[n] − signal[n−1]` is a high-pass filter. A constant or slowly-drifting signal produces near-zero output. A rapid rise or fall produces a large positive or negative spike. This is exactly what you need to locate the peak of a heartbeat.
+>
+> **The full filter chain in this project:**
+>
+> ```
+> raw signal
+>   → LPF: EMA removes slow DC drift          (background subtraction)
+>   → LPF: moving average removes fast noise   (smoothing)
+>   → HPF: differentiation finds rising edges  (peak detection)
+> ```
+>
+> After the two low-pass stages you have a clean, centered signal. The high-pass stage then highlights exactly the rapid transitions that mark heartbeat peaks.
 
 **Deliverable:** Open the Stage 2 sketch to see the raw signal (blue, top half) and the smoothed DC-free signal (amber, bottom half) displayed together in real time. The bottom trace should be centered on zero, smoother, and free of slow drift.
 
@@ -261,6 +293,8 @@ slope[n] = signal[n] − signal[n−1]
 > The derivative of a smooth bell-shaped heartbeat peak looks like an S-curve: positive (rising slope) before the peak, zero at the top, negative (falling slope) after it. Detecting the **zero crossing** from positive to negative gives you the precise timing of the peak.
 >
 > Differentiation amplifies noise — any jitter in the signal becomes large, fast swings in the derivative. This is why you must smooth the signal *before* differentiating.
+>
+> Differentiation is a **high-pass filter**: it passes fast changes (large output) and suppresses slow or constant signals (output near zero). This is the conceptual opposite of the moving average (a low-pass filter) applied in Stage 2b. Together, the two low-pass stages clean the signal and the high-pass stage reveals the sharp transitions that mark heartbeat peaks — see the Low-pass and High-pass Filters sidebar in Stage 2.
 
 ### 3b — Peak detection with a threshold
 
@@ -354,7 +388,10 @@ The rate of change of a signal. In discrete samples: `slope[n] = signal[n] - sig
 Computing the derivative of a signal. Used here to find the zero crossing (positive → negative slope) that marks a heartbeat peak.
 
 **Exponential Moving Average (EMA)**
-A weighted moving average in which more recent samples receive more weight. Updated with `ema = ema + α × (new_value - ema)`. The parameter α (alpha) controls how quickly the average responds to changes.
+A weighted moving average in which more recent samples receive more weight. Updated with `ema = ema + α × (new_value - ema)`. The parameter α (alpha) controls how quickly the average responds to changes. EMA is an *infinite impulse response (IIR)* low-pass filter: it uses a single variable rather than an explicit buffer, so all past samples contribute with exponentially decaying weight.
+
+**High-pass filter**
+A filter that passes high-frequency (fast-changing) content and attenuates low-frequency (slow-changing) content. Differentiation (computing the first difference of a signal) is a high-pass filter: it produces large output for rapid changes and near-zero output for constant or slowly-drifting signals. Contrast with *low-pass filter*.
 
 **IBI (Inter-Beat Interval)**
 The time in milliseconds between two consecutive heartbeat peaks. The inverse of heart rate: BPM = 60,000 / IBI.
@@ -363,7 +400,7 @@ The time in milliseconds between two consecutive heartbeat peaks. The inverse of
 In signal processing, accumulating (summing) a signal over time. A moving average is a form of integration. Integration smooths out high-frequency noise (a low-pass filter effect).
 
 **Low-pass filter**
-A filter that passes low-frequency content and attenuates high-frequency content. A moving average is a simple low-pass filter. Used here to smooth the raw sensor signal.
+A filter that passes low-frequency (slow-changing) content and attenuates high-frequency (fast-changing) content. Both signal-cleaning steps in Stage 2 are low-pass filters: the moving average is a *finite impulse response (FIR)* LPF that averages an explicit buffer of the last N samples; the EMA is an *infinite impulse response (IIR)* LPF that uses a single accumulating variable. Either can serve as a baseline estimator for background subtraction. Contrast with *high-pass filter*.
 
 **Moving average**
 The average of the last N samples in a buffer, updated as each new sample arrives. Also called a simple moving average (SMA) or box filter.

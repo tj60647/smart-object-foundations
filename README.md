@@ -1,112 +1,131 @@
 # Smart Object Foundations
 
-## Welcome
+## About This Project
 
-In this course you will build **Smart Objects**—physical devices that sense the world and share that information with software running in a browser. By the end you will have a working pulse-sensor heart-rate monitor and the skills to extend it into your own interactive or expressive project.
+**Smart Object Foundations** is a project in the MDes Prototyping course at CCA. It focuses on two new skills:
 
-**You will work with:**
-- An **ESP32 v2** microcontroller and the **Arduino IDE**
-- **WebSerial** to send data from the device to your laptop
-- **p5.js / OpenProcessing** to visualize and process the data in real time
+1. **Connecting your ESP32 to the browser** — sending sensor data from hardware into a web page using WebSerial
+2. **Signal processing** — cleaning up noisy sensor readings and extracting meaningful information
+
+The central hands-on example is a **pulse sensor heart-rate monitor**: you read an analog signal from a PulseSensor, stream it to your browser, visualize the waveform, and detect individual heartbeats.
 
 ---
 
-## Tutorial Roadmap
+## Where This Fits in the Course
 
-### Stage 1 — Core Project: Pulse Sensor Heartbeat Monitor
+| Project | Focus |
+|---|---|
+| ← [**Human Augmentation**](https://github.com/loopstick/ESP32_V2_Tutorial/blob/master/StemmaQT/README.md) | Arduino IDE, ESP32 v2, StemmaQT, DRV2605L haptic motor, LSM9DS1 IMU |
+| → **Smart Object Foundations** *(you are here)* | WebSerial, data visualization in p5.js, signal processing with a pulse sensor |
+| **Interactive Environment** | *(next project)* |
 
-Your central project is a **real-time heartbeat detector** using a PulseSensor and an ESP32.
+**You build on what you already know.** The Arduino IDE, ESP32v2 wiring, and analog sensing you practiced in Human Augmentation are the foundation here — this project adds the browser side of the pipeline and introduces signal processing.
+
+---
+
+## What You Will Build
+
+A **real-time heartbeat detector** that runs across hardware and software:
+
+```
+PulseSensor → ESP32 → Serial → WebSerial → p5.js → heartbeat detection
+```
+
+1. Wire a PulseSensor to an ESP32 analog pin
+2. Sample the signal in Arduino and send it over Serial
+3. Connect your browser to the ESP32 using WebSerial
+4. Draw a live scrolling waveform in p5.js / OpenProcessing
+5. Apply signal processing to detect peaks and calculate BPM
+
+---
+
+## Tutorial Stages
+
+### Stage 1 — Wire Up the Pulse Sensor
+
+Connect a [PulseSensor](https://pulsesensor.com/) to an analog input on your ESP32v2.
 
 **What you will do:**
-1. Wire a PulseSensor to an ESP32
-2. Read the analog signal in Arduino and print it over Serial
-3. Connect to your browser using WebSerial
-4. Draw a live waveform in p5.js
-5. Detect heartbeat peaks and display beats-per-minute
+- Connect the PulseSensor signal wire to an analog pin (e.g. A0)
+- Power it from 3.3V and GND
+- Open the Arduino Serial Plotter and confirm you can see the waveform
 
-This project is your launchpad. Everything else builds on it.
-
-**Key concepts you will practice:**
-- Analog sensing
-- Signal sampling
-- Serial communication
-- Real-time visualization
-- Basic signal processing
+**Skill check:** Can you see a rhythmic pulse signal in the Serial Plotter when you hold the sensor to your fingertip?
 
 ---
 
-### Stage 2 — Arduino / ESP32 Basics
+### Stage 2 — Sample and Send Data over Serial
 
-Before wiring up the pulse sensor, make sure you are comfortable with the Arduino environment.
+Read the sensor at a consistent rate and format the output so JavaScript can parse it.
 
 **Topics:**
-- Arduino IDE: installing, uploading, using the Serial Monitor
-- Sketch structure: `setup()` and `loop()`
-- Reading analog inputs with `analogRead()`
-- Controlling sample timing so readings are consistent
-- Formatting data as clean Serial output
-- Using the Arduino Serial Plotter to see a live signal
+- Sampling with `analogRead()` at a steady interval (avoid `delay()`)
+- Using `millis()` for non-blocking timing
+- Printing a single value per line: `Serial.println(value);`
+- Using the Arduino Serial Plotter to confirm the waveform looks right
 
-**Skill check:** Can you read a sensor value and print it at a steady rate?
+> **Refresher:** If you need a reminder on sketch structure, `setup()` / `loop()`, or the Serial Monitor, revisit the [ESP32 v2 Tutorial](https://github.com/loopstick/ESP32_V2_Tutorial/tree/master) from Project 1.
+
+**Skill check:** The Serial Plotter shows a clean, rhythmic wave at roughly 50–100 samples per second.
 
 ---
 
-### Stage 3 — Serial Communication and WebSerial
+### Stage 3 — Connect to the Browser with WebSerial
 
-Learn how data travels from the ESP32 into the browser.
+Use the [WebSerial API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API) to pipe your serial data into a browser tab.
 
 **Topics:**
-- What serial communication is and why formatting matters
-- Sending data from Arduino in a format JavaScript can parse
-- Using the WebSerial API to connect a browser to a serial device
-- Parsing the incoming data stream in p5.js
+- What WebSerial does and how to use it (Chrome / Edge only)
+- Opening a serial port from JavaScript
+- Reading and parsing incoming lines of text
+- Feeding parsed values into your p5.js sketch
 
-**Live demo sketches:**
+**Live demo sketches to study:**
 - [WebSerial example 1](https://openprocessing.org/sketch/2576473)
 - [WebSerial example 2](https://openprocessing.org/sketch/2583498)
 - [WebSerial example 3](https://openprocessing.org/sketch/2584328)
 
-**Goal:** Data flows continuously from your microcontroller into your p5.js sketch.
+**Goal:** Numbers from your ESP32 appear in the browser console as they arrive.
 
 ---
 
-### Stage 4 — Data Visualization in p5.js / OpenProcessing
+### Stage 4 — Visualize the Signal in p5.js
 
-Now that data is arriving in the browser, make it visible.
+Draw the incoming data as a scrolling waveform.
 
 **Topics:**
-- Storing incoming samples in an array
-- Drawing a scrolling time-series graph
-- Adding labels, scales, and visual polish
-- Designing a readable sensor display
+- Storing samples in a fixed-length array
+- Shifting old values out as new ones arrive
+- Drawing the array as a line graph across the canvas
+- Scaling and labeling the display
 
-**Deliverable:** A live waveform that scrolls as your pulse sensor data arrives.
+**Deliverable:** A live waveform that scrolls continuously in your OpenProcessing sketch.
 
 ---
 
-### Stage 5 — Signal Processing
+### Stage 5 — Signal Processing: Clean Up and Detect Peaks
 
-Raw sensor values are noisy. Learn to clean them up and extract meaning.
+Raw sensor data is noisy. Learn to smooth it and detect heartbeat peaks.
 
 **Topics:**
-- Moving average (smoothing)
-- Rate of change (detecting rises and falls)
-- Standard deviation (measuring variation)
-- Peak detection
-- Noise reduction techniques
+- Moving average (smoothing / integration)
+- Rate of change (finding rises and falls)
+- Peak detection (finding local maxima above a threshold)
+- Calculating beats per minute from peak timing
+- Noise reduction
 
-**Outcome:** Your sketch detects individual heartbeat peaks and calculates BPM.
+**Outcome:** Your sketch reliably detects each heartbeat and displays a running BPM value.
 
 ---
 
-### Stage 6 — Expressive Outputs
+### Stage 6 — Expressive Outputs (Extension)
 
-Extend your smart object beyond a screen display.
+Map your heartbeat data to something physical or expressive.
 
 **Ideas:**
-- LED patterns that respond to your heartbeat
-- Sound that pulses in time with your heart rate
-- Combining multiple sensors for richer data
+- Drive an LED or NeoPixel in time with your pulse
+- Trigger haptic feedback (you already have the DRV2605L from Project 1!)
+- Create a sound or visual reaction to each beat
 
 **Inspiration:** [Enchanted Objects](https://enchantedobjects.com/)
 
@@ -114,28 +133,30 @@ Extend your smart object beyond a screen display.
 
 ### Stage 7 — Networking (Extension)
 
-If you want to go further, explore sending data over Wi-Fi.
+Explore sending data over Wi-Fi instead of USB.
 
 **Concepts:**
-- MQTT messaging
+- MQTT messaging protocol
 - Cloud-connected devices
 - Web-based device communication
 
 **Example:** [MQTT in OpenProcessing](https://openprocessing.org/sketch/2203435)
 
-> **Note:** Wi-Fi on the ESP32 adds configuration complexity. WebSerial + p5.js is usually enough for class projects.
+> **Note:** Wi-Fi on the ESP32 adds configuration complexity (especially on managed networks like CCA's). WebSerial over USB is usually sufficient for this project.
 
 ---
 
 ## Getting Started Checklist
 
-- [ ] Install the Arduino IDE
-- [ ] Add ESP32 board support to the Arduino IDE
-- [ ] Install the PulseSensor Playground library
-- [ ] Wire up a PulseSensor to your ESP32 (analog pin)
-- [ ] Upload the starter sketch and verify Serial output
-- [ ] Open the WebSerial demo sketch in OpenProcessing
-- [ ] Connect your ESP32 and see the waveform appear
+*(You already have the Arduino IDE and ESP32 board support installed from Project 1.)*
+
+- [ ] Install the **PulseSensor Playground** library (`Sketch → Manage Libraries → search "PulseSensor Playground"`)
+- [ ] Wire up a PulseSensor to your ESP32 (signal → A0, power → 3.3V, GND → GND)
+- [ ] Upload the starter sketch and confirm the waveform in the Arduino Serial Plotter
+- [ ] Open a WebSerial demo sketch in OpenProcessing (Chrome or Edge)
+- [ ] Click "Connect" and select your ESP32 — confirm values arrive in the sketch
+- [ ] Build your own p5.js sketch that draws the waveform
+- [ ] Add peak detection and a BPM display
 
 ---
 
@@ -144,6 +165,16 @@ If you want to go further, explore sending data over Wi-Fi.
 # Faculty Notes
 
 > This section is for **instructors and course designers**. It covers open questions, pedagogical decisions, and ideas that are still being worked out.
+
+## Project Context
+
+This is the second hands-on project in the MDes Prototyping sequence:
+
+1. **Human Augmentation** — Students learn the tool chain (Arduino IDE, ESP32 v2, StemmaQT, DRV2605L, LSM9DS1). Reference tutorial: [loopstick/ESP32_V2_Tutorial](https://github.com/loopstick/ESP32_V2_Tutorial/blob/master/StemmaQT/README.md).
+2. **Smart Object Foundations** *(this project)* — Students add the browser half of the pipeline and learn basic signal processing.
+3. **Interactive Environment** — Next project (details TBD).
+
+The pulse sensor is chosen intentionally: it produces a visible, rhythmic signal that is easy to debug, satisfying to get working, and biologically meaningful — a good motivator.
 
 ## Curriculum Design Questions
 
@@ -156,12 +187,12 @@ If you want to go further, explore sending data over Wi-Fi.
 
 ## Technology Decisions
 
-- **WebSerial vs. Wi-Fi/MQTT:** WebSerial is simpler to set up and avoids CCA network configuration issues. For most instructional goals it is sufficient. Introducing Wi-Fi networking on the ESP32 may not be worth the added complexity.
-- The pulse sensor project is intentionally chosen because it produces a visible, rhythmic signal that is easy to debug and satisfying to get working.
+- **WebSerial vs. Wi-Fi/MQTT:** WebSerial is simpler and avoids CCA network configuration issues. For most instructional goals it is sufficient. Introducing Wi-Fi networking on the ESP32 may not be worth the added complexity.
+- Students already have DRV2605L haptic motors from Project 1 — the Stage 6 extension can leverage that for a satisfying cross-project connection.
 
 ## Possible Additional Materials
 
-- A **step-by-step pulse sensor lab sequence** with checkpoints (recommended as the core unit)
+- A **step-by-step pulse sensor lab sequence** with per-stage checkpoints (recommended as the core unit)
 - AI / inquiry tool integration: NotebookLM for research, LLM-based debugging prompts, "questions to ask" frameworks
 - Expanded assessment rubrics aligned to rapidly evolving student tool use
 

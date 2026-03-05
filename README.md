@@ -466,7 +466,7 @@ The PulseSensor Playground library is explicitly excluded. It abstracts away the
 Assessment opportunity: ask students to describe what each processing step does and what the waveform looks like at each stage. If they used the library, they cannot answer this.
 
 **WebSerial vs. Wi-Fi/MQTT.**
-WebSerial over USB is simpler and avoids CCA network configuration issues. For most instructional goals it is sufficient. Introducing Wi-Fi adds complexity that is better saved for a later project.
+WebSerial over USB is simpler and avoids CCA network configuration issues. For most instructional goals it is sufficient. Wi-Fi is addressed in the optional [AI Haptic Patterns side quest](./side-quest-wifi-haptic.md), which keeps it out of the critical path while still being available to students who want to go further.
 
 **Signal processing in JavaScript, not Arduino.**
 Running signal processing in p5.js rather than on the microcontroller has two benefits: (1) students can see and interact with the data at each processing stage in real time, including pausing, zooming, and logging; (2) the feedback loop for tuning parameters (threshold, window size, alpha) is much shorter — no compile/upload cycle.
@@ -479,12 +479,27 @@ Each stage's Arduino sketch and p5 sketch live in their own folder so they can b
 
 ## Curriculum Design Questions
 
+**Main project:**
 - How much weight should go to **physical prototyping** versus the software systems built around hardware?
 - Are students actually learning the target skills when they rely heavily on AI or "vibe coding" tools? How do we assess that?
 - Which should the curriculum optimize for?
   - Technical understanding
   - Creative momentum
   - Rapid experimentation
+
+**Side quests:**
+- Should side quests be formally assessed, or left as purely optional enrichment? Students who complete them acquire meaningfully different skills (cloud deployment, API integration) that may be invisible in a rubric focused on signal processing.
+- The WiFi side quest requires a personal Anthropic API key. Should the course provide a shared key, or is creating one part of the learning? Individual keys are more authentic but add a setup hurdle; a shared key is easier but obscures the cloud infrastructure layer.
+- The DRV2605L is reused from Human Augmentation — this assumes students still have their kit. What is the contingency if hardware is unavailable?
+
+## Side Quests
+
+Optional extensions that build on the main project without being required for it:
+
+| Side Quest | What it adds |
+|---|---|
+| [Sending data from the browser to the ESP32](./side-quest-browser-to-esp32.md) | WebSerial write path; ESP32 as actuator (LED, servo) |
+| [AI-generated haptic patterns over WiFi](./side-quest-wifi-haptic.md) | WiFi on ESP32; Vercel serverless function; Claude API |
 
 ## Possible Additional Materials
 

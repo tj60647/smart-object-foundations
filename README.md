@@ -122,9 +122,9 @@ Open this in the Arduino IDE and upload it to your ESP32. Open `Tools → Serial
 > You have two choices for how to label samples when you send them to the browser:
 >
 > - **Implicit time** — send just the value (`Serial.println(rawValue)`). The browser assumes samples arrive at a fixed rate and uses the sample index as a proxy for time. Simple, but breaks if any sample is dropped.
-> - **Explicit timestamp** — send both (`Serial.print(now); Serial.print(","); Serial.println(rawValue)`). The browser uses the real timestamp. Robust against dropped samples, required for accurate BPM calculation.
+> - **Explicit timestamp** — send both (`Serial.print(now); Serial.print(","); Serial.println(rawValue)`). The browser receives the real Arduino timestamp alongside each value, which is useful for logging or offline analysis.
 >
-> For this project, start with implicit time (simpler). Switch to explicit timestamps when you start computing BPM.
+> For this project, start with implicit time (simpler). The Stage 1 Arduino sketch sends explicit timestamps, but Stage 3 computes BPM from a local **sample counter** (not the Arduino timestamp) to avoid any mismatch between the two independent clocks.
 
 **Skill check:** The Serial Plotter shows a clean, rhythmic wave. You can see roughly one peak per second (at a resting heart rate).
 
@@ -370,7 +370,7 @@ Open the Stage 3 sketch. You will see:
 Hardware that converts a continuous voltage into a discrete integer. The ESP32's ADC is 12-bit, producing values from 0 to 4095.
 
 **Background subtraction**
-Estimating and removing the slowly-varying baseline level of a signal so that the interesting fast changes stand out. Implemented here as an exponential moving average subtracted from the raw signal.
+Estimating and removing the slowly-varying baseline level of a signal so that the interesting fast changes stand out. Implemented here as a buffer-based simple moving average (mean of the last BASELINE_N raw samples) subtracted from the raw signal.
 
 **BPM (Beats Per Minute)**
 Heart rate expressed as beats per minute. Computed as 60,000 ÷ average inter-beat interval (in ms).
@@ -443,8 +443,6 @@ A record of when something happened, usually in milliseconds since the microcont
 
 **Zero crossing**
 The moment when a signal crosses zero (or when the slope crosses zero). A positive-to-negative zero crossing in the derivative marks the peak of a signal.
-
----
 
 ---
 

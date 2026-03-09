@@ -9,6 +9,43 @@
 
 The hands-on thread running through the whole project is a **pulse sensor heart-rate monitor**. You will start with a raw analog waveform and progressively process it until you can detect individual heartbeats and report beats per minute with a confidence value.
 
+> **Ready to start?** Jump straight to the [Getting Started Checklist](#getting-started-checklist) at the bottom of this document.
+
+---
+
+## The Tools We Use
+
+This project links three main pieces:
+
+1. A **microcontroller** (ESP32) that reads sensor data from the physical world
+2. **WebSerial** — a browser feature that sends that data over USB to a web page in real time
+3. **p5.js sketches** in the browser that process and visualize the data
+
+### p5.js
+
+[p5.js](https://p5js.org) is a JavaScript library designed to make programming graphics, animation, and interaction easier in the web browser. It was created as a web-based evolution of the Processing language and is widely used in creative coding, art, and design education.
+
+In this course you use p5.js to:
+- read incoming data from WebSerial
+- process sensor data (averaging, filtering, rate-of-change)
+- detect patterns such as heartbeats from the PulseSensor
+- draw graphs and interactive visualizations
+- build browser-based interfaces connected to hardware
+
+### OpenProcessing
+
+[OpenProcessing](https://openprocessing.org) is an online platform for writing, running, and sharing p5.js sketches. It provides a browser-based code editor and a large community gallery of examples.
+
+In this course OpenProcessing is used as a learning and experimentation environment where you can:
+- run p5.js sketches directly in the browser without any local setup
+- quickly modify and test code
+- explore example visualizations
+- share and remix sketches with classmates
+
+WebSerial works in OpenProcessing as long as you are using Chrome or Edge — both of which support WebSerial on HTTPS pages. Firefox and Safari do not yet support WebSerial.
+
+> **Note:** Paste the contents of any `sketch.js` file into a new OpenProcessing sketch to run it there. If you prefer to work locally, open the matching `index.html` file in Chrome or Edge instead.
+
 ---
 
 ## Where This Fits in the Course
@@ -314,7 +351,7 @@ The default is `AMPLITUDE_THRESHOLD = 80`. This applies to the DC-free smoothed 
 >
 > More sophisticated pattern matching looks for longer templates: you define a "prototype heartbeat shape" and slide it across the signal looking for high correlation. This is how ECG systems detect arrhythmias — they match the incoming signal against libraries of known waveform patterns.
 >
-> For a photoplethysmography (PPG) sensor like the PulseSensor, simple peak detection is usually sufficient because the heartbeat waveform is relatively consistent in shape.
+> For a photoplethysmography (PPG) sensor like the PulseSensor, simple peak detection is usually sufficient because the heartbeat waveform is relatively consistent in shape. *Photoplethysmography* means measuring blood volume changes optically: an LED shines light into your fingertip, and a photodetector measures how much bounces back. Blood-filled tissue absorbs more light, so each heartbeat produces a small dip-then-rise in the reflected signal.
 
 ### 3c — BPM and confidence value
 
@@ -336,6 +373,8 @@ confidence = max(0, 1 − CV / 0.3)
 
 CV = 0 means perfectly regular beats; CV above 0.3 is considered unreliable. The sketch maps this to a 0–1 confidence score displayed in green (≥ 0.7), yellow (≥ 0.4), or red (< 0.4).
 
+> **Tuning tip:** The `0.3` threshold is a design choice, not a rule. If confidence seems too strict or too loose for your signal, you can adjust it directly in the sketch — look for `cv / 0.3` in the `computeBPM()` function. Raising it (e.g. `0.4`) makes the algorithm more forgiving; lowering it makes it stricter.
+
 ### 3d — What you will see
 
 Open the Stage 3 sketch. You will see:
@@ -356,7 +395,7 @@ Open the Stage 3 sketch. You will see:
 - [ ] Wire up the PulseSensor (signal → A0, power → 3.3V, GND → GND)
 - [ ] Upload `stage-0-wire-and-verify` — confirm the waveform in the Arduino Serial Plotter
 - [ ] Upload `stage-1-raw-waveform` Arduino sketch — confirm `ts,value` lines in Serial Monitor
-- [ ] Open a WebSerial demo sketch in OpenProcessing (Chrome or Edge), connect your ESP32
+- [ ] Open a WebSerial demo sketch in OpenProcessing — [this example](https://openprocessing.org/sketch/2583498) — in Chrome or Edge, connect your ESP32 to verify the connection works before moving on
 - [ ] Open the Stage 1 p5 sketch — confirm the scrolling raw waveform
 - [ ] Open the Stage 2 p5 sketch — confirm the smoothed, DC-free waveform appears below
 - [ ] Open the Stage 3 p5 sketch — tune `AMPLITUDE_THRESHOLD` until peaks are detected reliably
@@ -394,7 +433,7 @@ The rate of change of a signal. In discrete samples: `slope[n] = signal[n] - sig
 Computing the derivative of a signal. Used here to find the zero crossing (positive → negative slope) that marks a heartbeat peak.
 
 **Exponential Moving Average (EMA)**
-A weighted moving average in which more recent samples receive more weight. Updated with `ema = ema + α × (new_value - ema)`. The parameter α (alpha) controls how quickly the average responds to changes. EMA is an *infinite impulse response (IIR)* low-pass filter: it uses a single variable rather than an explicit buffer, so all past samples contribute with exponentially decaying weight.
+A weighted moving average in which more recent samples receive more weight. Updated with `ema = ema + α × (new_value - ema)`. The parameter α (alpha) controls how quickly the average responds to changes: a value close to 1 reacts quickly; a value close to 0 reacts slowly. EMA remembers all past samples with exponentially decreasing weight — the older a sample, the less it matters. Engineers call this an *infinite impulse response (IIR)* filter, meaning its "memory" never fully expires. ([Wikipedia: IIR filter](https://en.wikipedia.org/wiki/Infinite_impulse_response))
 
 **High-pass filter**
 A filter that passes high-frequency (fast-changing) content and attenuates low-frequency (slow-changing) content. Differentiation (computing the first difference of a signal) is a high-pass filter: it produces large output for rapid changes and near-zero output for constant or slowly-drifting signals. Contrast with *low-pass filter*.
@@ -406,7 +445,7 @@ The time in milliseconds between two consecutive heartbeat peaks. The inverse of
 In signal processing, accumulating (summing) a signal over time. A moving average is a form of integration. Integration smooths out high-frequency noise (a low-pass filter effect).
 
 **Low-pass filter**
-A filter that passes low-frequency (slow-changing) content and attenuates high-frequency (fast-changing) content. Both signal-cleaning steps in Stage 2 are low-pass filters: the moving average is a *finite impulse response (FIR)* LPF that averages an explicit buffer of the last N samples; the EMA is an *infinite impulse response (IIR)* LPF that uses a single accumulating variable. Either can serve as a baseline estimator for background subtraction. Contrast with *high-pass filter*.
+A filter that passes low-frequency (slow-changing) content and attenuates high-frequency (fast-changing) content. Both signal-cleaning steps in Stage 2 are low-pass filters implemented as moving averages over a fixed buffer of the last N samples. Engineers sometimes call this a *finite impulse response (FIR)* filter — "finite" because it only looks at a fixed number of past samples and then forgets them, as opposed to an EMA which retains all past history with decreasing weight. For this project the distinction is not critical; both approaches smooth the signal. ([Wikipedia: FIR filter](https://en.wikipedia.org/wiki/Finite_impulse_response)) Contrast with *high-pass filter*.
 
 **Moving average**
 The average of the last N samples in a buffer, updated as each new sample arrives. Also called a simple moving average (SMA) or box filter.
@@ -500,6 +539,7 @@ Optional extensions that build on the main project without being required for it
 |---|---|
 | [Sending data from the browser to the ESP32](./side-quest-browser-to-esp32.md) | WebSerial write path; ESP32 as actuator (LED, servo) |
 | [AI-generated haptic patterns over WiFi](./side-quest-wifi-haptic.md) | WiFi on ESP32; Vercel serverless function; Claude API |
+| [Control a NeoPixel over Bluetooth LE](./side-quest-bluetooth-streaming.md) | NimBLE on ESP32; `navigator.bluetooth`; NeoPixel colour control |
 
 ## Possible Additional Materials
 

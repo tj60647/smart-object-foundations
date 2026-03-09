@@ -67,7 +67,17 @@ const SAMPLE_INTERVAL_MS = 10;
 const YMIN = 0;
 const YMAX = 4095;
 
-// The midpoint of the ADC range. (0 + 4095) / 2 = 2047.5, rounded to 2047.
+// The midpoint of the ADC range.
+//
+// The ADC produces only whole numbers (integers) from 0 to 4095. Why that
+// range? It is a 12-bit binary converter: 2 to the power of 12 = 4096
+// possible values, starting at 0, ending at 4095.
+//
+// The true midpoint is (0 + 4095) / 2 = 2047.5 — a decimal, not a whole
+// number, so it is not a value the ADC itself can ever produce. JavaScript
+// stores decimals without complaint though, and 0.5 off-centre is invisible
+// on screen, so this is fine for our purpose.
+//
 // We fill the buffer with this value at startup so the initial flat line
 // appears in the centre of the canvas rather than at the bottom.
 const ADC_MID_SCALE = (YMIN + YMAX) / 2;
@@ -163,7 +173,11 @@ async function readLoop() {
       // We expect exactly 2 parts: timestamp and value.
       // (Blank lines or malformed lines are silently skipped.)
       if (parts.length === 2) {
-        const ts  = parseInt(parts[0]); // timestamp in milliseconds (not used in Stage 1)
+        // The timestamp is parsed here even though Stage 1 doesn't use it.
+        // This keeps the parsing code identical across Stage 1, 2, and 3 —
+        // so it's easier to compare the sketches side by side and copy logic
+        // between stages without having to restructure the line.
+        const ts  = parseInt(parts[0]); // timestamp in milliseconds
         const val = parseInt(parts[1]); // sensor reading 0–4095
 
         // parseInt() can return NaN (Not a Number) if the text isn't a valid
@@ -229,8 +243,9 @@ function draw() {
   // ── Draw the raw waveform ─────────────────────────────────────────────────
 
   // Set the line colour to the blue defined in RAW_COLOR.
-  // The spread operator (...) unpacks [100, 200, 255] into three arguments.
-  stroke(...RAW_COLOR);
+  // stroke() takes three separate R, G, B numbers, so we pass each slot
+  // of the array individually using [0], [1], [2].
+  stroke(RAW_COLOR[0], RAW_COLOR[1], RAW_COLOR[2]);
 
   // Turn off fill — we are drawing an outline (a line), not a filled shape.
   noFill();
@@ -265,7 +280,7 @@ function draw() {
   noStroke();
 
   // Draw the blue "RAW" label in the top-left corner of the canvas.
-  fill(...RAW_COLOR);
+  fill(RAW_COLOR[0], RAW_COLOR[1], RAW_COLOR[2]);
   textSize(14);
   text("RAW", 10, 20);
 }

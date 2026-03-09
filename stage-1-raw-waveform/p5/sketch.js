@@ -51,6 +51,15 @@
 // takes a sensor value (0–4095) and converts it to a screen y-coordinate
 // (20–(height-20) pixels). Large sensor values become small y coordinates
 // (near the top of the canvas) because in screen coordinates y=0 is the top.
+//
+// IMPORTANT FOR NEW READERS:
+// Browser canvas coordinates are upside-down compared with graph paper:
+// - y = 0 is at the TOP of the canvas
+// - larger y values move DOWN the screen
+//
+// That is why the output range in map() looks reversed (height - 20, 20)
+// instead of (20, height - 20). Reversing the output range keeps "larger
+// sensor value = higher line on screen," which matches intuition.
 
 // =============================================================================
 // CONSTANTS — fixed values that control the sketch's behaviour
@@ -98,6 +107,12 @@ const RAW_COLOR = [100, 200, 255];
 // reader — reads the incoming stream of text from that port
 let port, reader;
 
+// Simple connection state shown directly on the canvas so students can tell
+// whether data stopped because of signal processing or because the serial link
+// disconnected.
+let serialConnected = false;
+let serialStatusText = "Not connected — click Connect ESP32";
+
 // The rolling buffer of raw sensor values.
 // new Array(BUFFER_SIZE) creates an array with 500 slots.
 // .fill(ADC_MID_SCALE) sets every slot to the midpoint value (≈2048)
@@ -112,26 +127,38 @@ let rawBuffer = new Array(BUFFER_SIZE).fill(ADC_MID_SCALE);
 // 'async' means this function can pause and wait for things (like the user
 // choosing a port) without freezing the rest of the browser.
 async function connectSerial() {
-  // Ask the browser to show the port-picker popup. The user selects the
-  // ESP32 from a list of available serial ports. 'await' means "wait here
-  // until the user has made a choice, then continue."
-  port = await navigator.serial.requestPort();
+  try {
+    // Ask the browser to show the port-picker popup. The user selects the
+    // ESP32 from a list of available serial ports. 'await' means "wait here
+    // until the user has made a choice, then continue."
+    port = await navigator.serial.requestPort();
 
-  // Open the chosen port at 115200 baud — the same speed the Arduino uses.
-  await port.open({ baudRate: 115200 });
+    // Open the chosen port at 115200 baud — the same speed the Arduino uses.
+    await port.open({ baudRate: 115200 });
 
-  // The port sends raw bytes. TextDecoderStream converts those bytes into
-  // readable text (UTF-8 characters like letters, digits, commas, newlines).
-  const decoder = new TextDecoderStream();
+    // The port sends raw bytes. TextDecoderStream converts those bytes into
+    // readable text (UTF-8 characters like letters, digits, commas, newlines).
+    const decoder = new TextDecoderStream();
 
-  // Connect the port's byte stream to the decoder's input.
-  port.readable.pipeTo(decoder.writable);
+    // Connect the port's byte stream to the decoder's input.
+    port.readable.pipeTo(decoder.writable);
 
-  // Get a "reader" object so we can pull decoded text out of the stream.
-  reader = decoder.readable.getReader();
+    // Get a "reader" object so we can pull decoded text out of the stream.
+    reader = decoder.readable.getReader();
 
-  // Start the loop that continuously reads incoming lines.
-  readLoop();
+    // Connection succeeded, so update the visible status and start reading.
+    serialConnected = true;
+    serialStatusText = "Connected";
+
+    // Start the loop that continuously reads incoming lines.
+    readLoop();
+  } catch (err) {
+    // requestPort() throws if the user cancels the picker; open() can throw
+    // on permission/device errors. Show a clear message instead of failing
+    // silently so students know this is a connection issue.
+    serialConnected = false;
+    serialStatusText = "Connection cancelled/failed — click Connect ESP32";
+  }
 }
 
 // readLoop() — runs continuously in the background, reading incoming data
@@ -145,45 +172,57 @@ async function readLoop() {
 
   // Loop forever (until the port is closed or an error occurs).
   while (true) {
-    // Wait for the next chunk of text to arrive from the port.
-    // 'value' is the text that arrived; 'done' becomes true if the port closed.
-    const { value, done } = await reader.read();
+    try {
+      // Wait for the next chunk of text to arrive from the port.
+      // 'value' is the text that arrived; 'done' becomes true if the port closed.
+      const { value, done } = await reader.read();
 
-    // If the port closed, exit the loop.
-    if (done) break;
+      // If the port closed, exit the loop and update the on-screen status.
+      if (done) {
+        serialConnected = false;
+        serialStatusText = "Disconnected — click Connect ESP32";
+        break;
+      }
 
-    // Append the new chunk to any leftover partial text from last time.
-    partial += value;
+      // Append the new chunk to any leftover partial text from last time.
+      partial += value;
 
     // Split on newline characters to get individual lines.
     // For example "1234,2048\n1235,2051\n12" splits into:
     //   ["1234,2048", "1235,2051", "12"]
-    const lines = partial.split("\n");
+      const lines = partial.split("\n");
 
     // The last element after split("\n") is either empty (if the chunk ended
     // with a newline) or an incomplete line fragment. Either way, save it
     // for the next iteration and process only the complete lines before it.
-    partial = lines.pop();
+      partial = lines.pop();
 
     // Process each complete line.
-    for (const line of lines) {
+      for (const line of lines) {
       // Split "1234,2048" into ["1234", "2048"]
-      const parts = line.trim().split(",");
+        const parts = line.trim().split(",");
 
       // We expect exactly 2 parts: timestamp and value.
       // (Blank lines or malformed lines are silently skipped.)
-      if (parts.length === 2) {
+        if (parts.length === 2) {
         // The timestamp is parsed here even though Stage 1 doesn't use it.
         // This keeps the parsing code identical across Stage 1, 2, and 3 —
         // so it's easier to compare the sketches side by side and copy logic
         // between stages without having to restructure the line.
-        const ts  = parseInt(parts[0]); // timestamp in milliseconds
-        const val = parseInt(parts[1]); // sensor reading 0–4095
+          const ts  = parseInt(parts[0]); // timestamp in milliseconds
+          const val = parseInt(parts[1]); // sensor reading 0–4095
 
         // parseInt() can return NaN (Not a Number) if the text isn't a valid
         // integer. isNaN() checks for that and skips bad values.
-        if (!isNaN(val)) onNewSample(ts, val);
+          if (!isNaN(val)) onNewSample(ts, val);
+        }
       }
+    } catch (err) {
+      // If read() fails (for example cable unplugged), show a message so the
+      // student knows to reconnect rather than debugging the math pipeline.
+      serialConnected = false;
+      serialStatusText = "Serial read error — click Connect ESP32";
+      break;
     }
   }
 }
@@ -283,5 +322,16 @@ function draw() {
   fill(RAW_COLOR[0], RAW_COLOR[1], RAW_COLOR[2]);
   textSize(14);
   text("RAW", 10, 20);
+
+  // Show serial connection status in the top-right corner.
+  // Green means connected; red means not connected/disconnected/error.
+  textAlign(RIGHT, TOP);
+  textSize(12);
+  if (serialConnected) fill(80, 255, 80);
+  else                 fill(255, 120, 120);
+  text(serialStatusText, width - 10, 10);
+
+  // Reset text alignment so future additions default to left/top-style layout.
+  textAlign(LEFT, BASELINE);
 }
 

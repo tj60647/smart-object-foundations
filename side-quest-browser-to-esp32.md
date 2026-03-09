@@ -215,6 +215,8 @@ Instead of typing commands manually, you can wire browser events directly to the
 - Send the value to the ESP32 on every mouse move
 - ESP32 drives the built-in LED at that brightness with `analogWrite()`
 
+> **Note on PWM API choice:** This side quest intentionally uses `analogWrite()` for clarity and readability. Some ESP32 tutorials use lower-level LEDC calls for PWM configuration, but for this course and this LED-brightness task, `analogWrite()` is the preferred approach.
+
 **Arduino sketch — receive a brightness value:**
 
 ```cpp

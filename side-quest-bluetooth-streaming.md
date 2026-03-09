@@ -307,9 +307,13 @@ function draw() {
 **How to run:**
 
 1. Upload the SQ-1 Arduino sketch (no changes needed).
-2. Serve the browser files locally — open a terminal in the sketch folder and run `python3 -m http.server`, then open `http://localhost:8000` in Chrome or Edge.
+2. **OpenProcessing (recommended):** Create a new OpenProcessing sketch, paste the `sketch.js` code above, and run it in Chrome or Edge.
 3. Click **Connect** — the device picker shows **ColorLight**.
 4. Click **Red**, **Green**, **Blue**, **Off** and watch the NeoPixel respond.
+5. **Local fallback (optional):** serve the files and open `http://localhost:8000` in Chrome or Edge.
+  - `python3 -m http.server`
+  - `python -m http.server`
+  - `py -m http.server` (Windows)
 
 > **📐 Concept Sidebar: Web Bluetooth (`navigator.bluetooth`)**
 >

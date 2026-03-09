@@ -136,7 +136,9 @@ Connect the PulseSensor to your ESP32 and confirm the analog signal exists befor
 |---|---|
 | Red (power) | 3.3V |
 | Black (ground) | GND |
-| Purple (signal) | A0 (or any analog-capable pin) |
+| Purple (signal) | A0 |
+
+> **Pin note:** The provided Stage 0 and Stage 1 Arduino sketches are hardcoded to `SENSOR_PIN = A0`. If you wire the signal to a different analog-capable pin, update `SENSOR_PIN` in both Arduino files before uploading.
 
 📂 **Arduino sketch:** [`stage-0-wire-and-verify/stage_0_wire_and_verify/stage_0_wire_and_verify.ino`](stage-0-wire-and-verify/stage_0_wire_and_verify/stage_0_wire_and_verify.ino)
 
@@ -161,9 +163,9 @@ Open this in the Arduino IDE and upload it to your ESP32. Open `Tools → Serial
 > - **Implicit time** — send just the value (`Serial.println(rawValue)`). The browser assumes samples arrive at a fixed rate and uses the sample index as a proxy for time. Simple, but breaks if any sample is dropped.
 > - **Explicit timestamp** — send both (`Serial.print(now); Serial.print(","); Serial.println(rawValue)`). The browser receives the real Arduino timestamp alongside each value, which is useful for logging or offline analysis.
 >
-> For this project, start with implicit time (simpler). The Stage 1 Arduino sketch sends explicit timestamps, but Stage 3 computes BPM from a local **sample counter** (not the Arduino timestamp) to avoid any mismatch between the two independent clocks.
+> In this project we use **explicit timestamps** as the default wire format (`timestamp,value`) because they are robust and easy to inspect. In Stage 3, BPM is still computed from a local **sample counter** (not the Arduino timestamp) so all peak timing stays in one coordinate system inside the browser.
 
-**Skill check:** The Serial Plotter shows a clean, rhythmic wave. You can see roughly one peak per second (at a resting heart rate).
+**Deliverable:** The Serial Plotter shows a clean, rhythmic wave. You can see roughly one peak per second (at a resting heart rate).
 
 ---
 
@@ -184,11 +186,11 @@ This sketch sends lines like `1234,2048` — Arduino milliseconds and raw ADC va
 - **OpenProcessing:** paste the contents of `sketch.js` into a new sketch.
 - **Locally:** open `stage-1-raw-waveform/p5/index.html` in Chrome or Edge.
 
-The sketch maintains a 500-sample circular buffer (`rawBuffer`) of the most recent readings and draws it as a scrolling waveform.
+The sketch maintains a 500-sample fixed-length rolling buffer (`rawBuffer`) of the most recent readings and draws it as a scrolling waveform.
 
 > **📐 Concept Sidebar: Data Buffers and Rolling Windows**
 >
-> `rawBuffer` is a **circular buffer** (also called a ring buffer or rolling window): a fixed-length array that always holds the most recent N samples. When a new sample arrives you `push()` it onto the end and `shift()` one off the front. The array length never changes.
+> `rawBuffer` is a **fixed-length rolling buffer** (also called a rolling window): a fixed-length array that always holds the most recent N samples. When a new sample arrives you `push()` it onto the end and `shift()` one off the front. The array length never changes.
 >
 > Why fixed length? Because you are drawing to a fixed-width canvas. You always want exactly as many samples as you have pixels (or columns) to draw into. A buffer that grows without bound would eventually run out of memory.
 >
@@ -244,13 +246,15 @@ The sketch uses `BASELINE_N = 500` (a 5 s window). You can tune this constant in
 >
 > This approach is a **low-pass filter**: it keeps only slow (low-frequency) variation in the baseline estimate and throws away the fast heartbeat component. Subtracting it removes the DC component and slow drift, leaving only the heartbeat AC signal.
 >
-> **Alternative — exponential moving average (EMA):** instead of an explicit buffer, you can update a single running variable: `baseline = baseline + α × (raw − baseline)`. This is computationally cheaper and uses no extra memory, but the logic ("all past samples contribute with exponentially decaying weight, controlled by α") is less transparent than "average the last N seconds". For learning, the buffer approach is usually easier to reason about.
+> For a compact EMA alternative and why this project still uses buffers for teaching clarity, see the **Low-pass and High-pass Filters** sidebar below.
 
 ### 2b — Smoothing with a moving average (integration)
 
 After background subtraction, the signal still has sample-to-sample jitter. A **moving average** averages the last N samples together, which blurs out fast noise while preserving slower, larger features like heartbeat peaks.
 
 The sketch uses `SMOOTH_N = 15` (150 ms at 100 Hz). Try changing this constant in `sketch.js` to see the effect — smaller values are noisier, larger values are smoother but slightly delay peaks.
+
+For display clarity, the Stage 2 and Stage 3 sketches also define `SMOOTHED_DISPLAY_MIN` and `SMOOTHED_DISPLAY_MAX` for the lower (cleaned) trace. If that trace looks clipped or too flat on your setup, tune those display constants first before changing filter constants.
 
 > **📐 Concept Sidebar: Integration and Moving Average**
 >
@@ -373,7 +377,7 @@ confidence = max(0, 1 − CV / 0.3)
 
 CV = 0 means perfectly regular beats; CV above 0.3 is considered unreliable. The sketch maps this to a 0–1 confidence score displayed in green (≥ 0.7), yellow (≥ 0.4), or red (< 0.4).
 
-> **Tuning tip:** The `0.3` threshold is a design choice, not a rule. If confidence seems too strict or too loose for your signal, you can adjust it directly in the sketch — look for `cv / 0.3` in the `computeBPM()` function. Raising it (e.g. `0.4`) makes the algorithm more forgiving; lowering it makes it stricter.
+> **Tuning tip:** The `0.3` threshold is a design choice, not a rule. If confidence seems too strict or too loose for your signal, you can adjust it directly in the sketch — look for `cv / 0.3` in the `calculateBPMandConfidence()` function. Raising it (e.g. `0.4`) makes the algorithm more forgiving; lowering it makes it stricter.
 
 ### 3d — What you will see
 
@@ -414,8 +418,8 @@ Estimating and removing the slowly-varying baseline level of a signal so that th
 **BPM (Beats Per Minute)**
 Heart rate expressed as beats per minute. Computed as 60,000 ÷ average inter-beat interval (in ms).
 
-**Buffer / circular buffer**
-A fixed-length array that stores the most recent N samples. New samples are added to one end; old samples are discarded from the other. Also called a ring buffer or rolling buffer.
+**Buffer / rolling buffer**
+A fixed-length array that stores the most recent N samples. New samples are added to one end; old samples are discarded from the other. Also called a rolling window.
 
 **Coefficient of Variation (CV)**
 Standard deviation divided by mean. A dimensionless measure of relative variability. CV = 0 means all values are identical; CV = 1 means the standard deviation equals the mean. Used here as the basis for confidence scoring.
@@ -463,7 +467,7 @@ Finding occurrences of a known shape or template in a time series. Peak detectio
 Identifying local maxima in a signal that exceed a minimum amplitude threshold. Used here to find heartbeat peaks in the smoothed waveform.
 
 **Rolling window**
-See *buffer / circular buffer*. A window that moves through the signal as time advances, always covering the most recent N samples.
+See *buffer / rolling buffer*. A window that moves through the signal as time advances, always covering the most recent N samples.
 
 **Sampling rate**
 How many samples per second are collected from a sensor. Measured in Hz (samples per second) or equivalently as the interval between samples in milliseconds.

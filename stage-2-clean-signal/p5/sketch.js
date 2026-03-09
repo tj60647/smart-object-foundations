@@ -112,12 +112,23 @@ const BASELINE_N = 500;
 // see the effect.
 const SMOOTH_N = 15;
 
+// Vertical display range used for the cleaned (DC-free) trace.
+// If the bottom waveform looks clipped or too flat on your sensor setup,
+// tune these two constants before changing the signal-processing constants.
+const SMOOTHED_DISPLAY_MIN = -500;
+const SMOOTHED_DISPLAY_MAX = 500;
+
 // =============================================================================
 // STATE — variables that change as new data arrives
 // =============================================================================
 
 // WebSerial connection objects (assigned when the user clicks "Connect ESP32").
 let port, reader;
+
+// Connection state shown on-canvas so students can quickly tell whether a
+// frozen graph is a serial-link issue or a signal-processing issue.
+let serialConnected = false;
+let serialStatusText = "Not connected — click Connect ESP32";
 
 // Display buffers — pre-filled so the waveform starts as a flat line.
 //
@@ -154,50 +165,74 @@ let smoothWindow = [];
 // =============================================================================
 
 // connectSerial() — called when the user clicks "Connect ESP32"
+// 'async' means this function can pause at 'await' without freezing the
+// browser. p5's draw() loop keeps running while we wait for user/serial I/O.
 async function connectSerial() {
-  // Show the browser's port-picker popup so the user can select the ESP32.
-  port = await navigator.serial.requestPort();
+  try {
+    // Show the browser's port-picker popup so the user can select the ESP32.
+    // 'await' means: pause here until the user picks a port, then continue.
+    port = await navigator.serial.requestPort();
 
-  // Open the port at 115200 baud (matching the Arduino sketch).
-  await port.open({ baudRate: 115200 });
+    // Open the port at 115200 baud (matching the Arduino sketch).
+    await port.open({ baudRate: 115200 });
 
-  // Attach a text decoder so we get readable characters instead of raw bytes.
-  const decoder = new TextDecoderStream();
-  port.readable.pipeTo(decoder.writable);
+    // Attach a text decoder so we get readable characters instead of raw bytes.
+    const decoder = new TextDecoderStream();
+    port.readable.pipeTo(decoder.writable);
 
-  // Create a reader we can call .read() on to pull text out of the stream.
-  reader = decoder.readable.getReader();
+    // Create a reader we can call .read() on to pull text out of the stream.
+    reader = decoder.readable.getReader();
 
-  // Start reading in the background.
-  readLoop();
+    serialConnected = true;
+    serialStatusText = "Connected";
+
+    // Start reading in the background.
+    readLoop();
+  } catch (err) {
+    serialConnected = false;
+    serialStatusText = "Connection cancelled/failed — click Connect ESP32";
+  }
 }
 
 // readLoop() — continuously reads lines of "timestamp,value" from the port
+// This is a long-running async loop: each await reader.read() pauses until
+// the next chunk arrives, then resumes from the next line of code.
 async function readLoop() {
   let partial = ""; // accumulates text that hasn't yet ended with a newline
 
   while (true) {
-    // Wait for the next chunk of text from the serial port.
-    const { value, done } = await reader.read();
-    if (done) break; // port was closed; stop reading
-
-    // Append the new chunk to any leftover text from the last iteration.
-    partial += value;
-
-    // Split into lines. The last element may be an incomplete line, so we
-    // save it back into 'partial' with lines.pop() and loop over the rest.
-    const lines = partial.split("\n");
-    partial = lines.pop();
-
-    for (const line of lines) {
-      // Each complete line looks like "12345,2048" — split on the comma.
-      const parts = line.trim().split(",");
-      if (parts.length === 2) {
-        const ts  = parseInt(parts[0]); // Arduino timestamp (ms since power-on)
-        const val = parseInt(parts[1]); // raw ADC reading 0–4095
-        // Skip any line where parseInt couldn't parse a valid number.
-        if (!isNaN(val)) onNewSample(ts, val);
+    try {
+      // Wait for the next chunk of text from the serial port.
+      const { value, done } = await reader.read();
+      // If done is true, the stream was closed (for example, disconnect).
+      if (done) {
+        serialConnected = false;
+        serialStatusText = "Disconnected — click Connect ESP32";
+        break; // port was closed; stop reading
       }
+
+      // Append the new chunk to any leftover text from the last iteration.
+      partial += value;
+
+      // Split into lines. The last element may be an incomplete line, so we
+      // save it back into 'partial' with lines.pop() and loop over the rest.
+      const lines = partial.split("\n");
+      partial = lines.pop();
+
+      for (const line of lines) {
+        // Each complete line looks like "12345,2048" — split on the comma.
+        const parts = line.trim().split(",");
+        if (parts.length === 2) {
+          const ts  = parseInt(parts[0]); // Arduino timestamp (ms since power-on)
+          const val = parseInt(parts[1]); // raw ADC reading 0–4095
+          // Skip any line where parseInt couldn't parse a valid number.
+          if (!isNaN(val)) onNewSample(ts, val);
+        }
+      }
+    } catch (err) {
+      serialConnected = false;
+      serialStatusText = "Serial read error — click Connect ESP32";
+      break;
     }
   }
 }
@@ -339,11 +374,17 @@ function draw() {
   for (let i = 0; i < smoothedBuffer.length; i++) {
     let x = map(i, 0, smoothedBuffer.length - 1, 0, width);
 
-    // The cleaned signal is centred near 0. We map the range -500 to +500
-    // (a reasonable span for the heartbeat signal after DC removal) to the
-    // bottom half of the canvas (halfH+10 to height-10).
+    // The cleaned signal is centred near 0. We map the configurable display
+    // range (SMOOTHED_DISPLAY_MIN to SMOOTHED_DISPLAY_MAX) to the bottom half
+    // of the canvas (halfH+10 to height-10).
     // Swapping the output range again so positive values go upward.
-    let y = map(smoothedBuffer[i], -500, 500, height - 10, halfH + 10);
+    let y = map(
+      smoothedBuffer[i],
+      SMOOTHED_DISPLAY_MIN,
+      SMOOTHED_DISPLAY_MAX,
+      height - 10,
+      halfH + 10
+    );
 
     vertex(x, y);
   }
@@ -366,5 +407,14 @@ function draw() {
   // "SMOOTHED (DC-free)" label just below the dividing line, in amber.
   fill(SMOOTHED_COLOR[0], SMOOTHED_COLOR[1], SMOOTHED_COLOR[2]);
   text("SMOOTHED (DC-free)", 10, halfH + 20);
+
+  // Top-right status text gives immediate feedback when the serial stream
+  // disconnects so students do not confuse link issues with math issues.
+  textAlign(RIGHT, TOP);
+  textSize(12);
+  if (serialConnected) fill(80, 255, 80);
+  else                 fill(255, 120, 120);
+  text(serialStatusText, width - 10, 10);
+  textAlign(LEFT, BASELINE);
 }
 

@@ -124,6 +124,12 @@ const BASELINE_N = 500;
 // 15 samples × 10 ms = 150 ms window.
 const SMOOTH_N = 15;
 
+// Vertical display range used for the cleaned (DC-free) trace.
+// If the bottom waveform looks clipped or too flat on your sensor setup,
+// tune these two constants before changing the signal-processing constants.
+const SMOOTHED_DISPLAY_MIN = -500;
+const SMOOTHED_DISPLAY_MAX = 500;
+
 // ── Peak detection ───────────────────────────────────────────────────────────
 
 // Minimum signal amplitude for a peak to be counted as a heartbeat.
@@ -151,6 +157,11 @@ const CONFIDENCE_MED  = 0.4; // ≥ 40% → yellow; below this → red
 
 // WebSerial connection objects.
 let port, reader;
+
+// Connection state shown on-canvas so students can quickly tell whether a
+// frozen graph is a serial-link issue or a signal-processing issue.
+let serialConnected = false;
+let serialStatusText = "Not connected — click Connect ESP32";
 
 // Display buffers for the two waveform traces.
 //
@@ -208,42 +219,66 @@ let peakSampleCounts = [];
 // =============================================================================
 
 // connectSerial() — opens the browser's port picker and starts reading.
+// 'async' means this function can pause at 'await' without freezing the
+// browser. p5's draw() loop keeps running while we wait for serial I/O.
 async function connectSerial() {
-  port = await navigator.serial.requestPort();   // user picks the ESP32 port
-  await port.open({ baudRate: 115200 });          // open at 115200 baud
+  try {
+    // 'await' means: wait for the user to pick a port, then continue.
+    port = await navigator.serial.requestPort();   // user picks the ESP32 port
+    await port.open({ baudRate: 115200 });          // open at 115200 baud
 
-  // Decode the incoming byte stream into readable text.
-  const decoder = new TextDecoderStream();
-  port.readable.pipeTo(decoder.writable);
-  reader = decoder.readable.getReader();
+    // Decode the incoming byte stream into readable text.
+    const decoder = new TextDecoderStream();
+    port.readable.pipeTo(decoder.writable);
+    reader = decoder.readable.getReader();
 
-  readLoop(); // start the background reading loop
+    serialConnected = true;
+    serialStatusText = "Connected";
+
+    readLoop(); // start the background reading loop
+  } catch (err) {
+    serialConnected = false;
+    serialStatusText = "Connection cancelled/failed — click Connect ESP32";
+  }
 }
 
 // readLoop() — reads "timestamp,value" lines as they arrive from the ESP32.
+// This is a long-running async loop: each await reader.read() pauses until
+// a chunk arrives, then resumes immediately afterward.
 async function readLoop() {
   let partial = ""; // holds incomplete line fragments between read() calls
 
   while (true) {
-    const { value, done } = await reader.read(); // wait for the next chunk of text
-    if (done) break;                              // port closed — exit
-
-    partial += value;
-
-    // Split the accumulated text on newlines to get complete lines.
-    const lines = partial.split("\n");
-    partial = lines.pop(); // the last element may be an incomplete line — keep it
-
-    for (const line of lines) {
-      const parts = line.trim().split(","); // e.g. "12345,2048" → ["12345","2048"]
-      if (parts.length === 2) {
-        const ts  = parseInt(parts[0]); // Arduino timestamp in milliseconds
-        const val = parseInt(parts[1]); // raw ADC reading 0–4095
-        // parseInt() returns NaN (Not a Number) if the text can't be parsed
-        // as an integer (e.g. a blank line or corrupted data). isNaN() catches
-        // that and skips the bad value rather than passing garbage downstream.
-        if (!isNaN(val)) onNewSample(ts, val);
+    try {
+      const { value, done } = await reader.read(); // wait for the next chunk of text
+      // If done is true, the stream was closed (for example, disconnect).
+      if (done) {
+        serialConnected = false;
+        serialStatusText = "Disconnected — click Connect ESP32";
+        break; // port closed — exit
       }
+
+      partial += value;
+
+      // Split the accumulated text on newlines to get complete lines.
+      const lines = partial.split("\n");
+      partial = lines.pop(); // the last element may be an incomplete line — keep it
+
+      for (const line of lines) {
+        const parts = line.trim().split(","); // e.g. "12345,2048" → ["12345","2048"]
+        if (parts.length === 2) {
+          const ts  = parseInt(parts[0]); // Arduino timestamp in milliseconds
+          const val = parseInt(parts[1]); // raw ADC reading 0–4095
+          // parseInt() returns NaN (Not a Number) if the text can't be parsed
+          // as an integer (e.g. a blank line or corrupted data). isNaN() catches
+          // that and skips the bad value rather than passing garbage downstream.
+          if (!isNaN(val)) onNewSample(ts, val);
+        }
+      }
+    } catch (err) {
+      serialConnected = false;
+      serialStatusText = "Serial read error — click Connect ESP32";
+      break;
     }
   }
 }
@@ -486,9 +521,16 @@ function draw() {
   for (let i = 0; i < smoothedBuffer.length; i++) {
     let x = map(i, 0, smoothedBuffer.length - 1, 0, width);
 
-    // Map the cleaned signal (centred around 0, range roughly -500 to +500)
-    // to the bottom half of the canvas. Swap output range to keep upward = up.
-    let y = map(smoothedBuffer[i], -500, 500, height - 10, halfH + 10);
+    // Map the cleaned signal using a configurable display range so students
+    // can adjust visibility without changing the filtering math.
+    // Swap output range to keep upward = up.
+    let y = map(
+      smoothedBuffer[i],
+      SMOOTHED_DISPLAY_MIN,
+      SMOOTHED_DISPLAY_MAX,
+      height - 10,
+      halfH + 10
+    );
 
     vertex(x, y);
   }
@@ -564,5 +606,14 @@ function draw() {
   else                                    fill(255,  80, 80);  // red
 
   text(`Confidence: ${confPct}%`, width - 215, 62);
+
+  // Top-right status text gives immediate feedback when the serial stream
+  // disconnects so students do not confuse link issues with math issues.
+  textAlign(RIGHT, TOP);
+  textSize(12);
+  if (serialConnected) fill(80, 255, 80);
+  else                 fill(255, 120, 120);
+  text(serialStatusText, width - 10, 10);
+  textAlign(LEFT, BASELINE);
 }
 

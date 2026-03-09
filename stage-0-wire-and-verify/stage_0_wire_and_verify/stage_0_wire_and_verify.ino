@@ -87,6 +87,15 @@ const unsigned long SAMPLE_INTERVAL_MS = 10;
 // reading. millis() is a built-in Arduino function that counts up from zero
 // the moment the ESP32 starts. Comparing the current time to the last sample
 // time lets us know when 10 ms have passed.
+//
+// WHY unsigned long AND NOT int?
+// millis() counts up without stopping. A regular int on Arduino is a 16-bit
+// signed number with a maximum value of 32,767 — that overflows after only
+// about 32 seconds of run time. A regular long is 32-bit signed and overflows
+// after about 24 days. unsigned long is 32-bit but has no negative side, so
+// its maximum is 4,294,967,295 ms — about 49 days. That is more than enough
+// for any project session. If you change this to int by mistake, the timing
+// will break after ~32 seconds in a subtle, hard-to-diagnose way.
 unsigned long lastSampleTime = 0;
 
 // =============================================================================

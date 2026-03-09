@@ -94,7 +94,14 @@ const SAMPLE_INTERVAL_MS = 10;
 const YMIN = 0;
 const YMAX = 4095;
 
-// Midpoint of the ADC range — used to initialise buffers to a neutral value.
+// The midpoint of the ADC range, used to pre-fill buffers so the waveform
+// starts as a flat line in the centre of the canvas.
+//
+// The ADC produces only whole numbers (integers) from 0 to 4095 — a 12-bit
+// binary range (2^12 = 4096 possible values). The true midpoint is
+// (0 + 4095) / 2 = 2047.5, which is a decimal, not a whole number. That is
+// fine here: JavaScript stores decimals without complaint, and 0.5 off-centre
+// is invisible on screen.
 const ADC_MID_SCALE = (YMIN + YMAX) / 2;
 
 // Number of samples to keep for the display waveform (5 s × 100 Hz = 500).
@@ -146,6 +153,15 @@ const CONFIDENCE_MED  = 0.4; // ≥ 40% → yellow; below this → red
 let port, reader;
 
 // Display buffers for the two waveform traces.
+//
+// rawBuffer is filled with ADC_MID_SCALE (~2048) because the raw signal lives
+// in the 0–4095 ADC range. The midpoint is the best neutral value to start
+// with — it places the flat line in the centre of the raw waveform panel.
+//
+// smoothedBuffer is filled with 0 because the cleaned signal has its DC
+// (baseline) component removed. After subtraction the signal is centred
+// around zero, so 0 is the correct neutral value there.
+// The two different fill values are intentional.
 let rawBuffer      = new Array(BUFFER_SIZE).fill(ADC_MID_SCALE); // raw values
 let smoothedBuffer = new Array(BUFFER_SIZE).fill(0);             // cleaned values
 
@@ -164,15 +180,21 @@ let smoothWindow = [];
 // ── Differentiation state ────────────────────────────────────────────────────
 
 // The smoothed value from the previous sample — needed to compute slope.
+//
+// Initialised to 0. On the very first sample, differentiate() computes
+// slope = smoothed - 0. Then detectPeak() checks prevSlope (also 0) > 0,
+// which is false — so no spurious peak fires on startup. Safe by design,
+// but not obvious from the code alone.
 let prevSmoothed = 0;
 
 // The slope (derivative) from the previous sample — needed to detect when
 // slope crosses from positive to negative (zero crossing = peak).
+// Also initialised to 0 for the same safe-startup reason described above.
 let prevSlope = 0;
 
 // ── Peak detection state ─────────────────────────────────────────────────────
 
-// A monotonically increasing counter: incremented by 1 for every new sample.
+// A counter that goes up by 1 every time a new sample arrives and never resets.
 // We use this instead of the Arduino's timestamp to position detected peaks
 // on the canvas, avoiding any mismatch between the two clocks.
 let sampleCount = 0;
@@ -217,6 +239,9 @@ async function readLoop() {
       if (parts.length === 2) {
         const ts  = parseInt(parts[0]); // Arduino timestamp in milliseconds
         const val = parseInt(parts[1]); // raw ADC reading 0–4095
+        // parseInt() returns NaN (Not a Number) if the text can't be parsed
+        // as an integer (e.g. a blank line or corrupted data). isNaN() catches
+        // that and skips the bad value rather than passing garbage downstream.
         if (!isNaN(val)) onNewSample(ts, val);
       }
     }
@@ -242,7 +267,9 @@ function updateBuffer(buf, value) {
 // Maintaining a running sum (baselineSum) lets us compute that mean by a
 // single division, rather than re-summing 500 numbers every time.
 //
-// push/shift on a 500-element array is O(n) but negligible at 100 Hz.
+// push/shift moves every item in the array one position — on a 500-item
+// array at 100 samples per second that is 50 000 small steps per second,
+// which a modern browser handles without trouble.
 function removeBackground(raw) {
   // Remove the oldest sample's contribution from the running sum.
   baselineSum -= baselineWindow.shift();
@@ -353,16 +380,25 @@ function calculateBPMandConfidence() {
 
   let n = intervals.length;
 
-  // Mean IBI: add all intervals and divide by how many there are.
-  // Array.reduce() with an initial value of 0 sums the array.
-  let mean = intervals.reduce((a, b) => a + b, 0) / n;
+  // Mean IBI: add all intervals together, then divide by how many there are.
+  let sum = 0;
+  for (let i = 0; i < intervals.length; i++) {
+    sum += intervals[i];
+  }
+  let mean = sum / n;
 
   // BPM: one minute (60 000 ms) divided by the average beat-to-beat gap.
   let bpm = 60000 / mean;
 
-  // Variance: average of the squared distances from the mean.
-  // Squaring makes all distances positive, and larger deviations count more.
-  let variance = intervals.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / n;
+  // Variance: for each interval, find how far it is from the mean, square
+  // that distance (so that positive and negative differences both count),
+  // then take the average of all those squared distances.
+  let squaredDiffSum = 0;
+  for (let i = 0; i < intervals.length; i++) {
+    let diff = intervals[i] - mean;  // how far this interval is from the mean
+    squaredDiffSum += diff * diff;   // square it and add to the running total
+  }
+  let variance = squaredDiffSum / n;
 
   // Standard deviation: the square root of variance. Same units as the IBIs (ms).
   // A small stdDev means the intervals are all similar (regular heartbeat).
@@ -374,6 +410,12 @@ function calculateBPMandConfidence() {
 
   // Map CV to confidence: if CV = 0 → confidence 1.0; if CV ≥ 0.3 → confidence 0.
   // Math.max(0, ...) clamps the result so it never goes below zero.
+  //
+  // The 0.3 here is a tunable design choice, not a universal constant.
+  // It says: "if beat spacing varies by more than 30% of the mean, I call that
+  // unreliable." If you find confidence too low for a real heartbeat signal,
+  // try raising it to 0.4 or 0.5. If noise keeps scoring too high, lower it.
+  // Think of it the same way as AMPLITUDE_THRESHOLD — a dial you can turn.
   let confidence = Math.max(0, 1 - cv / 0.3);
 
   return { bpm, confidence };
@@ -426,7 +468,7 @@ function draw() {
 
   // ── Top half: raw signal ──────────────────────────────────────────────────
 
-  stroke(...RAW_COLOR);
+  stroke(RAW_COLOR[0], RAW_COLOR[1], RAW_COLOR[2]);
   noFill();
   beginShape();
   for (let i = 0; i < rawBuffer.length; i++) {
@@ -438,7 +480,7 @@ function draw() {
 
   // ── Bottom half: smoothed DC-free signal ─────────────────────────────────
 
-  stroke(...SMOOTHED_COLOR);
+  stroke(SMOOTHED_COLOR[0], SMOOTHED_COLOR[1], SMOOTHED_COLOR[2]);
   noFill();
   beginShape();
   for (let i = 0; i < smoothedBuffer.length; i++) {
@@ -482,28 +524,40 @@ function draw() {
 
   // ── BPM and confidence readout ────────────────────────────────────────────
 
-  // Get the latest BPM and confidence values.
+  // Call calculateBPMandConfidence() and unpack its two return values at once.
+  //
+  // The function returns an object like: { bpm: 72, confidence: 0.85 }
+  // The curly-brace syntax on the left — called "destructuring" — is a
+  // shorthand that pulls named properties out of that object and creates
+  // two separate variables in one line. It is equivalent to writing:
+  //   let result     = calculateBPMandConfidence();
+  //   let bpm        = result.bpm;
+  //   let confidence = result.confidence;
   let { bpm, confidence } = calculateBPMandConfidence();
 
   noStroke();
 
   // Labels in the left margin.
   textSize(14);
-  fill(...RAW_COLOR);
+  fill(RAW_COLOR[0], RAW_COLOR[1], RAW_COLOR[2]);
   text("RAW", 10, 20);
-  fill(...SMOOTHED_COLOR);
+  fill(SMOOTHED_COLOR[0], SMOOTHED_COLOR[1], SMOOTHED_COLOR[2]);
   text("SMOOTHED (DC-free)", 10, halfH + 20);
 
   // Large BPM number in the top-right corner.
-  // bpm.toFixed(0) rounds to the nearest whole number as a string.
-  // If we don't have enough peaks yet, show "--".
+  // toFixed(0) is a JavaScript number method that rounds a decimal to a
+  // given number of decimal places and returns it as a string.
+  // toFixed(0) means "zero decimal places" — so 72.6 becomes "73".
+  // If we don't have enough peaks yet, show "--" instead.
   fill(255);
   textSize(32);
   text(bpm > 0 ? `${bpm.toFixed(0)} BPM` : "-- BPM", width - 215, 42);
 
   // Confidence percentage below the BPM, colour-coded by threshold.
   textSize(14);
-  let confPct = (confidence * 100).toFixed(0); // convert 0.0–1.0 to 0–100
+  // confidence is a 0.0–1.0 fraction. Multiply by 100 to get a percentage,
+  // then toFixed(0) rounds it to a whole number string (e.g. 0.847 → "85").
+  let confPct = (confidence * 100).toFixed(0);
 
   if      (confidence >= CONFIDENCE_HIGH) fill(80,  255, 80);  // green
   else if (confidence >= CONFIDENCE_MED)  fill(255, 200,  0);  // yellow

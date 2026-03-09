@@ -71,7 +71,14 @@ const SAMPLE_INTERVAL_MS = 10;
 const YMIN = 0;
 const YMAX = 4095;
 
-// Mid-point of the ADC range — used to initialise buffers to a sensible value.
+// The midpoint of the ADC range, used to pre-fill buffers so the waveform
+// starts as a flat line in the centre of the canvas.
+//
+// The ADC produces only whole numbers (integers) from 0 to 4095 — a 12-bit
+// binary range (2^12 = 4096 possible values). The true midpoint is
+// (0 + 4095) / 2 = 2047.5, which is a decimal, not a whole number. That is
+// fine here: JavaScript stores decimals without complaint, and 0.5 off-centre
+// is invisible on screen.
 const ADC_MID_SCALE = (YMIN + YMAX) / 2;
 
 // Number of samples to keep in the display buffer = 5 seconds of history.
@@ -113,6 +120,15 @@ const SMOOTH_N = 15;
 let port, reader;
 
 // Display buffers — pre-filled so the waveform starts as a flat line.
+//
+// rawBuffer is filled with ADC_MID_SCALE (~2048) because the raw signal lives
+// in the 0–4095 ADC range. The midpoint is the best neutral value to start
+// with — it places the flat line in the centre of the raw waveform panel.
+//
+// smoothedBuffer is filled with 0 because the cleaned signal has its DC
+// (baseline) component removed. After subtraction the signal is centred
+// around zero, so 0 is the correct neutral value there.
+// The two different fill values are intentional.
 let rawBuffer      = new Array(BUFFER_SIZE).fill(ADC_MID_SCALE); // raw ADC values
 let smoothedBuffer = new Array(BUFFER_SIZE).fill(0);             // cleaned values
 
@@ -214,9 +230,10 @@ function updateBuffer(buf, value) {
 //    If the baseline is 2100 and raw is 2250, the DC-free value is 150.
 //    Now all heartbeat peaks are measured relative to zero instead of 2100.
 //
-// push/shift is O(n) (each call re-indexes the array), but at 100 Hz with
-// 500 elements this costs ~50 000 operations/second — negligible for a
-// modern browser.
+// push/shift moves every item in the array one position — on a 500-item
+// array that is 500 small operations per sample. At 100 samples per second
+// that is 50 000 tiny steps per second, which a modern browser handles
+// without any trouble.
 function removeBackground(raw) {
   // Remove the oldest sample from the running sum, then drop it from the window.
   baselineSum -= baselineWindow.shift();
@@ -298,7 +315,7 @@ function draw() {
 
   // ── Top half: raw signal ──────────────────────────────────────────────────
 
-  stroke(...RAW_COLOR);
+  stroke(RAW_COLOR[0], RAW_COLOR[1], RAW_COLOR[2]);
   noFill();
   beginShape();
   for (let i = 0; i < rawBuffer.length; i++) {
@@ -316,7 +333,7 @@ function draw() {
 
   // ── Bottom half: smoothed DC-free signal ─────────────────────────────────
 
-  stroke(...SMOOTHED_COLOR);
+  stroke(SMOOTHED_COLOR[0], SMOOTHED_COLOR[1], SMOOTHED_COLOR[2]);
   noFill();
   beginShape();
   for (let i = 0; i < smoothedBuffer.length; i++) {
@@ -343,11 +360,11 @@ function draw() {
   textSize(14);
 
   // "RAW" label near the top-left, in blue.
-  fill(...RAW_COLOR);
+  fill(RAW_COLOR[0], RAW_COLOR[1], RAW_COLOR[2]);
   text("RAW", 10, 20);
 
   // "SMOOTHED (DC-free)" label just below the dividing line, in amber.
-  fill(...SMOOTHED_COLOR);
+  fill(SMOOTHED_COLOR[0], SMOOTHED_COLOR[1], SMOOTHED_COLOR[2]);
   text("SMOOTHED (DC-free)", 10, halfH + 20);
 }
 

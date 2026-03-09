@@ -117,7 +117,7 @@ Add NimBLE so the ESP32 is discoverable over Bluetooth. No browser code yet — 
 #define NEOPIXEL_PIN   0
 #define NEOPIXEL_COUNT 1
 
-// Custom 128-bit UUIDs — copy these exactly into the browser sketch.
+// Custom 128-bit UUIDs. Keep these values identical in the SQ-2/SQ-3 browser sketch.
 #define SERVICE_UUID "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
 #define COLOR_UUID   "beb5483e-36e1-4688-b7f5-ea07361b26a8"
 

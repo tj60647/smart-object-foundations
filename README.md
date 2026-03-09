@@ -500,6 +500,7 @@ Optional extensions that build on the main project without being required for it
 |---|---|
 | [Sending data from the browser to the ESP32](./side-quest-browser-to-esp32.md) | WebSerial write path; ESP32 as actuator (LED, servo) |
 | [AI-generated haptic patterns over WiFi](./side-quest-wifi-haptic.md) | WiFi on ESP32; Vercel serverless function; Claude API |
+| [Wireless data streaming over Bluetooth LE](./side-quest-bluetooth-streaming.md) | BLE on ESP32; Nordic UART Service; Web Bluetooth API |
 
 ## Possible Additional Materials
 

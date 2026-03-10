@@ -1,5 +1,5 @@
 // =============================================================================
-// File:    signal.js
+// File:    signal-stage-3.js
 // Project: Smart Object Foundations — MDes Prototyping, CCA
 // Stage:   3 — Heartbeat Detection with Confidence
 //

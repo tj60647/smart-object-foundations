@@ -23,7 +23,7 @@ const {
   BUFFER_SIZE,
   updateBuffer,
   parseSerialLine,
-} = require("../../stage-1-raw-waveform/signal");
+} = require("../signal-stage-1");
 
 // =============================================================================
 // Constants

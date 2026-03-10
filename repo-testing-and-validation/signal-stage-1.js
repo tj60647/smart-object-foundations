@@ -1,5 +1,5 @@
 // =============================================================================
-// File:    signal.js
+// File:    signal-stage-1.js
 // Project: Smart Object Foundations — MDes Prototyping, CCA
 // Stage:   1 — Raw Waveform Display
 //

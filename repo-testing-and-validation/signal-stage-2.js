@@ -1,5 +1,5 @@
 // =============================================================================
-// File:    signal.js
+// File:    signal-stage-2.js
 // Project: Smart Object Foundations — MDes Prototyping, CCA
 // Stage:   2 — Clean Signal
 //

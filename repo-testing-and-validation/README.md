@@ -15,13 +15,13 @@ If you want to understand how the code works, read the `sketch.js` files in each
 | `tests/stage-3.test.js` | Differentiation, peak detection, BPM calculation, and confidence scoring |
 | `tests/sidequests.test.js` | All three side quest markdown files — existence, stage headings (SQ-0 through SQ-3), code block balance, JavaScript syntax, and topic keywords |
 
-The tests import the signal-processing logic from small helper modules placed alongside each stage's main sketch. Those modules extract the pure math from `sketch.js` into a form that can run in Node.js without a browser:
+The tests exercise signal-processing logic extracted from each stage's `sketch.js` into standalone JavaScript modules that can run in Node.js without a browser. Those modules live in this folder alongside the tests:
 
-| Helper module | What it exports |
+| Module | What it contains |
 |---|---|
-| `../stage-1-raw-waveform/signal.js` | `updateBuffer`, `parseSerialLine`, and constants |
-| `../stage-2-clean-signal/signal.js` | `createSignalProcessor` with `removeBackground` and `movingAverage` |
-| `../stage-3-heartbeat-detection/signal.js` | `createSignalProcessor` with the full pipeline including `differentiate`, `detectPeak`, and `calculateBPMandConfidence` |
+| `signal-stage-1.js` | `updateBuffer`, `parseSerialLine`, and constants |
+| `signal-stage-2.js` | `createSignalProcessor` with `removeBackground` and `movingAverage` |
+| `signal-stage-3.js` | `createSignalProcessor` with the full pipeline including `differentiate`, `detectPeak`, and `calculateBPMandConfidence` |
 
 ---
 
@@ -84,7 +84,7 @@ Create a file anywhere in `tests/` with the name pattern `something.test.js`. Je
 ```js
 "use strict";
 
-const { createSignalProcessor } = require("../../stage-3-heartbeat-detection/signal");
+const { createSignalProcessor } = require("../signal-stage-3");
 
 describe("My experiment", () => {
   test("describe what you expect here", () => {

@@ -18,7 +18,7 @@
 
 "use strict";
 
-const { createSignalProcessor, DEFAULTS } = require("../../stage-3-heartbeat-detection/signal");
+const { createSignalProcessor, DEFAULTS } = require("../signal-stage-3");
 
 // =============================================================================
 // DEFAULTS

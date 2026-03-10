@@ -14,6 +14,7 @@ If you want to understand how the code works, read the `sketch.js` files in each
 | `tests/stage-2.test.js` | Background subtraction and moving-average smoothing |
 | `tests/stage-3.test.js` | Differentiation, peak detection, BPM calculation, and confidence scoring |
 | `tests/sidequests.test.js` | All three side quest markdown files — existence, stage headings (SQ-0 through SQ-3), code block balance, JavaScript syntax, and topic keywords |
+| `tests/sketch-compat.test.js` | All three `sketch.js` files — browser and OpenProcessing compatibility (no `require`/`import`/`module.exports`, no Node.js globals, defines `setup()` and `draw()`, calls `createCanvas()`, references `navigator.serial`, syntactically valid JavaScript) |
 
 The tests exercise signal-processing logic that is copied from each stage's `sketch.js` into standalone JavaScript modules that can run in Node.js without a browser. These modules are **independent copies** — `sketch.js` does not import or depend on them in any way. Each `sketch.js` is fully self-contained and works as-is in OpenProcessing, the p5.js web editor, or locally via `index.html`. The modules here exist only to give Jest something to import for testing. Those modules live in this folder alongside the tests:
 
@@ -47,8 +48,9 @@ PASS  tests/stage-1.test.js
 PASS  tests/stage-2.test.js
 PASS  tests/stage-3.test.js
 PASS  tests/sidequests.test.js
+PASS  tests/sketch-compat.test.js
 
-Tests: 121 passed, 4 suites
+Tests: 163 passed, 5 suites
 ```
 
 ---

@@ -15,7 +15,7 @@ If you want to understand how the code works, read the `sketch.js` files in each
 | `tests/stage-3.test.js` | Differentiation, peak detection, BPM calculation, and confidence scoring |
 | `tests/sidequests.test.js` | All three side quest markdown files — existence, stage headings (SQ-0 through SQ-3), code block balance, JavaScript syntax, and topic keywords |
 
-The tests exercise signal-processing logic extracted from each stage's `sketch.js` into standalone JavaScript modules that can run in Node.js without a browser. Those modules live in this folder alongside the tests:
+The tests exercise signal-processing logic that is copied from each stage's `sketch.js` into standalone JavaScript modules that can run in Node.js without a browser. These modules are **independent copies** — `sketch.js` does not import or depend on them in any way. Each `sketch.js` is fully self-contained and works as-is in OpenProcessing, the p5.js web editor, or locally via `index.html`. The modules here exist only to give Jest something to import for testing. Those modules live in this folder alongside the tests:
 
 | Module | What it contains |
 |---|---|

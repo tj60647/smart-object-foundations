@@ -1,0 +1,72 @@
+# =============================================================================
+# File:    .github/workflows/deploy-pages.yml
+# Project: Smart Object Foundations — MDes Prototyping, CCA
+#
+# Authors: Copilot
+#          Thomas J McLeish
+# License: MIT — see LICENSE in the root of this repository
+# =============================================================================
+#
+# PURPOSE
+# Publishes the entire repository to GitHub Pages so the gallery and all
+# p5.js sketches are accessible at a public URL without cloning the repo.
+#
+# LIVE URLS (after this workflow runs successfully)
+#   Gallery:  https://tj60647.github.io/smart-object-foundations/gallery/
+#   Stage 1:  https://tj60647.github.io/smart-object-foundations/stage-1-raw-waveform/p5/
+#   Stage 2:  https://tj60647.github.io/smart-object-foundations/stage-2-clean-signal/p5/
+#   Stage 3:  https://tj60647.github.io/smart-object-foundations/stage-3-heartbeat-detection/p5/
+#
+# IMPORTANT — WebSerial
+# The p5.js sketches use the WebSerial API, which requires Chrome or Edge AND
+# a secure context (https:// or localhost). GitHub Pages serves over HTTPS, so
+# the security requirement is met. Users still need Chrome/Edge for WebSerial.
+# =============================================================================
+
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+
+  # Allow a manual re-deploy from the Actions tab
+  workflow_dispatch:
+
+# Grant the GITHUB_TOKEN the permissions required by actions/deploy-pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one deployment at a time; skip queued runs but don't cancel in-progress
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+
+    # Target the built-in GitHub Pages environment so the URL appears in the UI
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload site artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # Deploy the entire repo root so relative links between files work
+          path: .
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

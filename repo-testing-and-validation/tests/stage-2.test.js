@@ -16,7 +16,7 @@
 
 "use strict";
 
-const { createSignalProcessor, DEFAULTS } = require("../stage-2-clean-signal/signal");
+const { createSignalProcessor, DEFAULTS } = require("../../stage-2-clean-signal/signal");
 
 // Convenience: create a processor with a small baseline window so tests do not
 // need to feed hundreds of samples to warm up.

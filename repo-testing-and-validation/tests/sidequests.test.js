@@ -24,7 +24,9 @@
 const fs   = require("fs");
 const path = require("path");
 
-const ROOT = path.resolve(__dirname, "..");
+// ROOT points two levels up from this file (repo-testing-and-validation/tests/)
+// to the repository root where the side quest markdown files live.
+const ROOT = path.resolve(__dirname, "../..");
 
 const SIDEQUEST_FILES = {
   bluetooth: path.join(ROOT, "side-quest-bluetooth-streaming.md"),

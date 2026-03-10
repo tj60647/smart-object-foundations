@@ -1,0 +1,11 @@
+{
+  "name": "smart-object-foundations-tests",
+  "version": "1.0.0",
+  "description": "Test suite for the Smart Object Foundations signal processing stages and side quests",
+  "scripts": {
+    "test": "jest"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}

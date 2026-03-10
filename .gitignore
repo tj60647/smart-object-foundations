@@ -1,3 +1,7 @@
 # Local audit tracking docs
 AUDIT.md
 READABILITY_AUDIT_WORKPLAN.md
+
+# Node.js dependencies and test coverage output
+node_modules/
+coverage/

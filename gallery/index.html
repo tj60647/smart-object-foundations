@@ -1,0 +1,364 @@
+<!--
+  ============================================================================
+  File:    index.html
+  Project: Smart Object Foundations — MDes Prototyping, CCA
+  Section: Gallery — Code Examples
+
+  Authors: Copilot
+           Thomas J McLeish
+  License: MIT — see LICENSE in the root of this repository
+  ============================================================================
+
+  PURPOSE
+  This page is a standalone gallery of all code examples in the project.
+  It lives in gallery/ and links out to the individual sketches in their
+  own stage directories. It is intentionally separate from the lesson
+  source files so the stages can be browsed, studied, or run independently
+  of the gallery itself.
+
+  HOW TO USE
+  Open this file in Google Chrome or Microsoft Edge (WebSerial support).
+  Each card links to the corresponding p5.js sketch or side-quest document.
+  ============================================================================
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gallery — Smart Object Foundations</title>
+  <style>
+    /* ── Reset & base ─────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #111;
+      color: #e0e0e0;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      padding: 2rem 1rem 4rem;
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    /* ── Page header ──────────────────────────────────────────────────────── */
+    .page-header {
+      max-width: 900px;
+      margin: 0 auto 2.5rem;
+      border-bottom: 1px solid #333;
+      padding-bottom: 1.5rem;
+    }
+
+    .page-header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: #fff;
+      margin-bottom: 0.4rem;
+    }
+
+    .page-header p {
+      font-size: 0.95rem;
+      color: #888;
+      line-height: 1.6;
+    }
+
+    .browser-note {
+      display: inline-block;
+      margin-top: 0.75rem;
+      padding: 0.35rem 0.75rem;
+      background: #1e1e1e;
+      border: 1px solid #333;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      color: #aaa;
+    }
+
+    /* ── Section headings ─────────────────────────────────────────────────── */
+    .section-title {
+      max-width: 900px;
+      margin: 0 auto 1rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #555;
+    }
+
+    /* ── Card grid ────────────────────────────────────────────────────────── */
+    .grid {
+      max-width: 900px;
+      margin: 0 auto 3rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 1rem;
+    }
+
+    /* ── Card ─────────────────────────────────────────────────────────────── */
+    .card {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 8px;
+      padding: 1.25rem 1.25rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      transition: border-color 0.15s, background 0.15s;
+    }
+
+    .card:hover {
+      background: #1f1f1f;
+      border-color: #444;
+    }
+
+    /* ── Badge (stage number / side-quest label) ──────────────────────────── */
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      width: fit-content;
+    }
+
+    .badge-stage-1 { background: #1a3a2a; color: #4ade80; }
+    .badge-stage-2 { background: #1a2a3a; color: #60a5fa; }
+    .badge-stage-3 { background: #2a1a3a; color: #c084fc; }
+    .badge-sidequest { background: #2a1e0e; color: #fb923c; }
+
+    /* ── Card title ───────────────────────────────────────────────────────── */
+    .card-title {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: #f0f0f0;
+      line-height: 1.3;
+    }
+
+    /* ── Card description ─────────────────────────────────────────────────── */
+    .card-desc {
+      font-size: 0.85rem;
+      color: #999;
+      line-height: 1.6;
+      flex: 1;
+    }
+
+    /* ── Concepts list ────────────────────────────────────────────────────── */
+    .concepts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+
+    .concept-tag {
+      font-size: 0.7rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 3px;
+      background: #222;
+      border: 1px solid #333;
+      color: #777;
+    }
+
+    /* ── Card action row ──────────────────────────────────────────────────── */
+    .card-actions {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-top: 0.25rem;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.4rem 0.85rem;
+      border-radius: 5px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      border: none;
+    }
+
+    .btn:hover { opacity: 0.85; }
+
+    .btn-primary {
+      background: #2a2a2a;
+      border: 1px solid #444;
+      color: #e0e0e0;
+    }
+
+    .btn-secondary {
+      background: transparent;
+      border: 1px solid #333;
+      color: #666;
+    }
+
+    /* arrow icon */
+    .btn-primary::after { content: '→'; font-size: 0.9rem; }
+
+    /* ── Footer ───────────────────────────────────────────────────────────── */
+    .footer {
+      max-width: 900px;
+      margin: 0 auto;
+      padding-top: 1.5rem;
+      border-top: 1px solid #222;
+      font-size: 0.78rem;
+      color: #444;
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Page header ──────────────────────────────────────────────────────── -->
+  <header class="page-header">
+    <h1>Code Example Gallery</h1>
+    <p>
+      Browse and run every p5.js sketch in the project — from the raw sensor
+      waveform all the way to real-time heartbeat detection. Side quests are
+      linked as reference docs.
+    </p>
+    <span class="browser-note">
+      ⚠ WebSerial requires Chrome or Edge — Firefox and Safari will not work.
+    </span>
+  </header>
+
+  <!-- ── Stages ───────────────────────────────────────────────────────────── -->
+  <p class="section-title">Stages</p>
+  <div class="grid">
+
+    <!-- Stage 1 -->
+    <a class="card" href="../stage-1-raw-waveform/p5/index.html">
+      <span class="badge badge-stage-1">Stage 1</span>
+      <div class="card-title">Raw Waveform Display</div>
+      <div class="card-desc">
+        Connect to an ESP32 over USB, read a continuous stream of sensor
+        values, and draw a live scrolling waveform on the canvas.
+      </div>
+      <div class="concepts">
+        <span class="concept-tag">WebSerial</span>
+        <span class="concept-tag">Rolling buffer</span>
+        <span class="concept-tag">Canvas mapping</span>
+      </div>
+      <div class="card-actions">
+        <span class="btn btn-primary">Open sketch</span>
+      </div>
+    </a>
+
+    <!-- Stage 2 -->
+    <a class="card" href="../stage-2-clean-signal/p5/index.html">
+      <span class="badge badge-stage-2">Stage 2</span>
+      <div class="card-title">Clean Signal</div>
+      <div class="card-desc">
+        Remove slow DC drift with a long-window baseline, then smooth out
+        fast noise with a moving-average filter. Both the raw and cleaned
+        traces are shown side-by-side.
+      </div>
+      <div class="concepts">
+        <span class="concept-tag">DC offset removal</span>
+        <span class="concept-tag">Moving average</span>
+        <span class="concept-tag">Dual-trace display</span>
+      </div>
+      <div class="card-actions">
+        <span class="btn btn-primary">Open sketch</span>
+      </div>
+    </a>
+
+    <!-- Stage 3 -->
+    <a class="card" href="../stage-3-heartbeat-detection/p5/index.html">
+      <span class="badge badge-stage-3">Stage 3</span>
+      <div class="card-title">Heartbeat Detection</div>
+      <div class="card-desc">
+        Differentiate the cleaned signal to find zero-crossings, detect
+        peaks above an amplitude threshold, and compute live BPM with a
+        confidence score showing how regular the beats are.
+      </div>
+      <div class="concepts">
+        <span class="concept-tag">Differentiation</span>
+        <span class="concept-tag">Peak detection</span>
+        <span class="concept-tag">BPM calculation</span>
+        <span class="concept-tag">Confidence score</span>
+      </div>
+      <div class="card-actions">
+        <span class="btn btn-primary">Open sketch</span>
+      </div>
+    </a>
+
+  </div>
+
+  <!-- ── Side quests ──────────────────────────────────────────────────────── -->
+  <p class="section-title">Side Quests</p>
+  <div class="grid">
+
+    <!-- Side quest: Browser → ESP32 -->
+    <a class="card" href="../side-quest-browser-to-esp32.md">
+      <span class="badge badge-sidequest">Side Quest</span>
+      <div class="card-title">Browser → ESP32</div>
+      <div class="card-desc">
+        Send commands <em>back</em> to the ESP32 from the browser — toggle
+        an LED, send text strings, or stream continuous control values over
+        the same WebSerial connection.
+      </div>
+      <div class="concepts">
+        <span class="concept-tag">Bidirectional serial</span>
+        <span class="concept-tag">LED control</span>
+        <span class="concept-tag">Command protocol</span>
+      </div>
+      <div class="card-actions">
+        <span class="btn btn-secondary">View guide</span>
+      </div>
+    </a>
+
+    <!-- Side quest: Bluetooth -->
+    <a class="card" href="../side-quest-bluetooth-streaming.md">
+      <span class="badge badge-sidequest">Side Quest</span>
+      <div class="card-title">Bluetooth Streaming</div>
+      <div class="card-desc">
+        Cut the cable. Stream sensor data wirelessly over Bluetooth LE and
+        drive a NeoPixel ring from the browser without a USB connection.
+      </div>
+      <div class="concepts">
+        <span class="concept-tag">BLE / Web Bluetooth</span>
+        <span class="concept-tag">NeoPixel</span>
+        <span class="concept-tag">Wireless streaming</span>
+      </div>
+      <div class="card-actions">
+        <span class="btn btn-secondary">View guide</span>
+      </div>
+    </a>
+
+    <!-- Side quest: WiFi Haptic -->
+    <a class="card" href="../side-quest-wifi-haptic.md">
+      <span class="badge badge-sidequest">Side Quest</span>
+      <div class="card-title">WiFi Haptic Feedback</div>
+      <div class="card-desc">
+        Send your heart-rate data to a cloud API, generate AI-driven haptic
+        patterns via Claude, and actuate a vibration motor on the ESP32 over
+        WiFi.
+      </div>
+      <div class="concepts">
+        <span class="concept-tag">WiFi / HTTP</span>
+        <span class="concept-tag">Claude API</span>
+        <span class="concept-tag">Haptic motor</span>
+        <span class="concept-tag">Vercel serverless</span>
+      </div>
+      <div class="card-actions">
+        <span class="btn btn-secondary">View guide</span>
+      </div>
+    </a>
+
+  </div>
+
+  <!-- ── Footer ───────────────────────────────────────────────────────────── -->
+  <footer class="footer">
+    <span>Smart Object Foundations — MDes Prototyping, CCA</span>
+    <span>MIT License</span>
+  </footer>
+
+</body>
+</html>

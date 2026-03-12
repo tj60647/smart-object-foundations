@@ -11,6 +11,8 @@ The hands-on thread running through the whole project is a **pulse sensor heart-
 
 > **Ready to start?** Jump straight to the [Getting Started Checklist](#getting-started-checklist) at the bottom of this document.
 
+> **🖼️ Gallery:** Browse and run every p5.js sketch in the project — from raw waveform to heartbeat detection — in the [Code Example Gallery](https://tj60647.github.io/smart-object-foundations/gallery/).
+
 ---
 
 ## The Tools We Use

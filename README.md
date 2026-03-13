@@ -325,6 +325,13 @@ With a clean signal in hand, you can now detect peaks. Each peak corresponds to 
 
 This is a complete, standalone sketch. Use the same Arduino sketch from Stage 1.
 
+### Stage 3 Extension: AI Studio Version
+
+This companion demo builds on Stage 3 and shows an extended implementation in a hosted app.
+
+- **Live demo:** [smart-object-foundations-aistudiodemo](https://tj60647.github.io/smart-object-foundations-aistudiodemo/)
+- **AI Studio project (code + preview):** [Smart Object Foundations AI Studio App](https://ai.studio/apps/66fee9e2-1ede-41e5-9e9e-3c5355268e76?fullscreenApplet=true)
+
 ### 3a — Differentiation: finding rises and falls
 
 The **derivative** (rate of change) of a signal tells you whether it is going up or down at each moment. A heartbeat peak is where the signal transitions from rising to falling — i.e., where the derivative crosses zero from positive to negative.
